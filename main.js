@@ -43,6 +43,12 @@ ipcMain.handle('save-config', (event, config) => {
   return true;
 });
 
+// IPC: clear saved IMAP config
+ipcMain.handle('clear-config', () => {
+  store.delete('imapConfig');
+  return true;
+});
+
 // Helper: connect to IMAP (auto-detect TLS)
 async function getImapConnection(config) {
   const makeConn = (useTls) => new Promise((resolve, reject) => {

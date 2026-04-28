@@ -3,18 +3,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   const usernameInput = document.getElementById('username');
   const passwordInput = document.getElementById('password');
   const connectBtn = document.getElementById('connectBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
   const statusDiv = document.getElementById('status');
   const inboxList = document.getElementById('inboxList');
   const emailContent = document.getElementById('emailContent');
 
   // Load saved config on startup
+  let savedConfig = {};
   try {
-    const config = await window.electronAPI.getConfig();
-    if (config.host) hostInput.value = config.host;
-    if (config.username) usernameInput.value = config.username;
-    if (config.password) passwordInput.value = config.password;
+    savedConfig = await window.electronAPI.getConfig();
+    if (savedConfig.host) hostInput.value = savedConfig.host;
+    if (savedConfig.username) usernameInput.value = savedConfig.username;
+    if (savedConfig.password) passwordInput.value = savedConfig.password;
   } catch (e) {
     statusDiv.textContent = 'Error loading config: ' + e.message;
+  }
+
+  // Auto-login if all config fields are present
+  if (savedConfig.host && savedConfig.username && savedConfig.password) {
+    loadInbox(savedConfig);
   }
 
   connectBtn.addEventListener('click', async () => {
@@ -34,24 +41,44 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       await window.electronAPI.saveConfig(config);
-      statusDiv.textContent = 'Connecting to IMAP...';
-      inboxList.innerHTML = '';
-
-      const emails = await window.electronAPI.fetchInbox(config);
-      statusDiv.textContent = `Loaded ${emails.length} emails.`;
-
-      emails.reverse().forEach((email) => {
-        const li = document.createElement('li');
-        li.style.cursor = 'pointer';
-        li.textContent = `${email.date} — ${email.subject}`;
-        li.dataset.uid = email.uid;
-        li.addEventListener('click', () => loadEmail(config, email.uid));
-        inboxList.appendChild(li);
-      });
+      await loadInbox(config);
     } catch (e) {
       statusDiv.textContent = 'Error: ' + e.message;
     }
   });
+
+  logoutBtn.addEventListener('click', async () => {
+    try {
+      await window.electronAPI.clearConfig();
+      document.getElementById('loginForm').style.display = '';
+      logoutBtn.style.display = 'none';
+      inboxList.innerHTML = '';
+      emailContent.innerHTML = '';
+      statusDiv.textContent = 'Logged out.';
+    } catch (e) {
+      statusDiv.textContent = 'Error: ' + e.message;
+    }
+  });
+
+  async function loadInbox(config) {
+    statusDiv.textContent = 'Connecting to IMAP...';
+    inboxList.innerHTML = '';
+
+    const emails = await window.electronAPI.fetchInbox(config);
+    statusDiv.textContent = `Loaded ${emails.length} emails.`;
+
+    document.getElementById('loginForm').style.display = 'none';
+    logoutBtn.style.display = '';
+
+    emails.reverse().forEach((email) => {
+      const li = document.createElement('li');
+      li.style.cursor = 'pointer';
+      li.textContent = `${email.date} — ${email.subject}`;
+      li.dataset.uid = email.uid;
+      li.addEventListener('click', () => loadEmail(config, email.uid));
+      inboxList.appendChild(li);
+    });
+  }
 
   async function loadEmail(config, uid) {
     if (!uid) {
