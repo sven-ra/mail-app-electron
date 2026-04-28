@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const Imap = require('imap');
+const { simpleParser } = require('mailparser');
 
 const store = new Store();
 
@@ -9,8 +10,8 @@ let mainWindow;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 700,
+    width: 1000,
+    height: 800,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -42,9 +43,9 @@ ipcMain.handle('save-config', (event, config) => {
   return true;
 });
 
-// Helper: try to connect with or without TLS
-function tryImapConnection(config, useTls) {
-  return new Promise((resolve, reject) => {
+// Helper: connect to IMAP (auto-detect TLS)
+async function getImapConnection(config) {
+  const makeConn = (useTls) => new Promise((resolve, reject) => {
     const imap = new Imap({
       user: config.username,
       password: config.password,
@@ -54,33 +55,63 @@ function tryImapConnection(config, useTls) {
       tlsOptions: { rejectUnauthorized: false },
       connTimeout: 10000,
     });
-
-    imap.once('ready', () => {
-      resolve(imap);
-    });
-
-    imap.once('error', (err) => {
-      reject(err);
-    });
-
+    imap.once('ready', () => resolve(imap));
+    imap.once('error', (err) => reject(err));
     imap.connect();
+  });
+
+  try {
+    return await makeConn(true);
+  } catch (err) {
+    return await makeConn(false);
+  }
+}
+
+function decodeMimeWord(str) {
+  return str.replace(/=\?([\w-]+)\?(Q|B)\?([^?]+)\?=/gi, (match, charset, encoding, text) => {
+    try {
+      if (encoding.toUpperCase() === 'Q') {
+        const decoded = text.replace(/_/g, ' ')
+          .replace(/=([0-9A-F]{2})/gi, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
+        return decoded;
+      } else if (encoding.toUpperCase() === 'B') {
+        const decoded = Buffer.from(text.replace(/[^A-Za-z0-9+\/=]/g, ''), 'base64').toString();
+        return decoded;
+      }
+    } catch (e) {
+      return match;
+    }
+    return match;
   });
 }
 
-// IPC: fetch inbox headers (subject + date only)
-ipcMain.handle('fetch-inbox', async (event, config) => {
-  let imap;
+function parseHeaders(buf) {
+  const text = buf.toString('utf8');
+  const lines = text.split(/\r?\n/);
+  const headers = {};
+  let currentKey = null;
 
-  // Auto-detect TLS: try TLS on 993 first, then fallback to 143
-  try {
-    imap = await tryImapConnection(config, true);
-  } catch (err) {
-    try {
-      imap = await tryImapConnection(config, false);
-    } catch (err2) {
-      throw new Error(`Connection failed (tried TLS and non-TLS): ${err2.message}`);
+  for (const line of lines) {
+    if (line.startsWith(' ') || line.startsWith('\t')) {
+      if (currentKey) {
+        headers[currentKey] = (headers[currentKey] || '') + line;
+      }
+    } else {
+      const match = line.match(/^([^:]+):\s*(.*)$/);
+      if (match) {
+        currentKey = match[1].toLowerCase();
+        headers[currentKey] = match[2];
+      } else {
+        currentKey = null;
+      }
     }
   }
+  return headers;
+}
+
+// IPC: fetch inbox headers (subject + date + uid)
+ipcMain.handle('fetch-inbox', async (event, config) => {
+  const imap = await getImapConnection(config);
 
   return new Promise((resolve, reject) => {
     const emails = [];
@@ -91,10 +122,8 @@ ipcMain.handle('fetch-inbox', async (event, config) => {
 
     function checkDone() {
       if (resolved) return;
-      console.log(`[IMAP] checkDone: fetchDone=${fetchDone}, processed=${processedCount}, totalFetched=${totalFetched}`);
       if (fetchDone && processedCount === totalFetched) {
         resolved = true;
-        console.log(`[IMAP] Resolving with ${emails.length} emails`);
         imap.end();
         resolve(emails);
       }
@@ -103,7 +132,7 @@ ipcMain.handle('fetch-inbox', async (event, config) => {
     imap.openBox('INBOX', true, (err, box) => {
       if (err) {
         imap.end();
-        return reject(new Error(`Failed to open INBOX: ${err.message}`));
+        return reject(new Error('Failed to open INBOX: ' + err.message));
       }
 
       const total = box.messages.total;
@@ -114,61 +143,17 @@ ipcMain.handle('fetch-inbox', async (event, config) => {
 
       const start = Math.max(1, total - 49);
       const range = `${start}:${total}`;
-      console.log(`[IMAP] Total messages: ${total}, fetching range: ${range}`);
-
-      console.log(`[IMAP] Starting seq.fetch with range: ${range}`);
-      const fetch = imap.seq.fetch(range, {
-        bodies: 'HEADER',
-      });
-      console.log(`[IMAP] Fetch object created: ${typeof fetch}`);
+      const fetch = imap.seq.fetch(range, { bodies: 'HEADER' });
 
       fetch.on('message', (msg, seqno) => {
-        console.log(`[IMAP] Got message event for seqno=${seqno}`);
         totalFetched++;
         let messageDone = false;
         let chunks = [];
+        let uid = null;
 
-        function decodeMimeWord(str) {
-          return str.replace(/=\?([\w-]+)\?(Q|B)\?([^?]+)\?=/gi, (match, charset, encoding, text) => {
-            try {
-              if (encoding.toUpperCase() === 'Q') {
-                const decoded = text.replace(/_/g, ' ')
-                  .replace(/=([0-9A-F]{2})/gi, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
-                return decoded;
-              } else if (encoding.toUpperCase() === 'B') {
-                const decoded = Buffer.from(text.replace(/[^A-Za-z0-9+\/=]/g, ''), 'base64').toString();
-                return decoded;
-              }
-            } catch (e) {
-              return match;
-            }
-            return match;
-          });
-        }
-
-        function parseHeaders(buf) {
-          const text = buf.toString('utf8');
-          const lines = text.split(/\r?\n/);
-          const headers = {};
-          let currentKey = null;
-
-          for (const line of lines) {
-            if (line.startsWith(' ') || line.startsWith('\t')) {
-              if (currentKey) {
-                headers[currentKey] = (headers[currentKey] || '') + line;
-              }
-            } else {
-              const match = line.match(/^([^:]+):\s*(.*)$/);
-              if (match) {
-                currentKey = match[1].toLowerCase();
-                headers[currentKey] = match[2];
-              } else {
-                currentKey = null;
-              }
-            }
-          }
-          return headers;
-        }
+        msg.once('attributes', (attrs) => {
+          uid = attrs.uid;
+        });
 
         function processMessage() {
           if (messageDone) return;
@@ -179,60 +164,104 @@ ipcMain.handle('fetch-inbox', async (event, config) => {
             subject = decodeMimeWord(subject);
             const dateStr = parsed.date || null;
             const date = dateStr ? new Date(dateStr).toLocaleString() : 'No date';
-            emails.push({ subject, date });
-            console.log(`[IMAP] Parsed msg ${seqno}: subject="${subject}", date="${date}"`);
+            emails.push({ uid, subject, date });
           } catch (e) {
-            console.log(`[IMAP] Parse error for msg ${seqno}:`, e.message);
-            emails.push({ subject: '(parse error)', date: 'No date' });
+            emails.push({ uid, subject: '(parse error)', date: 'No date' });
           }
           processedCount++;
           checkDone();
         }
 
         msg.on('body', (stream, info) => {
-          console.log(`[IMAP] Body stream started for msg ${seqno}`);
           stream.on('data', (chunk) => chunks.push(chunk));
-          stream.once('end', () => {
-            console.log(`[IMAP] Stream end for msg ${seqno}`);
-            processMessage();
-          });
+          stream.once('end', () => processMessage());
         });
 
-        msg.once('end', () => {
-          console.log(`[IMAP] Msg end for ${seqno}`);
-          processMessage();
-        });
-
-        msg.once('error', (err) => {
-          console.log(`[IMAP] Msg error for ${seqno}:`, err.message);
-          processMessage();
-        });
+        msg.once('end', () => processMessage());
+        msg.once('error', () => processMessage());
       });
 
       fetch.once('error', (err) => {
-        console.log(`[IMAP] Fetch error:`, err.message);
         if (!resolved) {
           resolved = true;
           imap.end();
-          reject(new Error(`Fetch error: ${err.message}`));
+          reject(new Error('Fetch error: ' + err.message));
         }
       });
 
       fetch.once('end', () => {
         fetchDone = true;
-        console.log(`[IMAP] Fetch end signal. totalFetched=${totalFetched}, processed=${processedCount}`);
         checkDone();
       });
 
-      // Safety timeout: if nothing resolves in 15s, force resolve
       setTimeout(() => {
         if (!resolved) {
           resolved = true;
-          console.log(`[IMAP] Timeout: forcing resolve with ${emails.length} emails`);
           imap.end();
           resolve(emails);
         }
       }, 15000);
     });
+  });
+});
+
+// IPC: fetch full email content by UID
+ipcMain.handle('fetch-email', async (event, config, uid) => {
+  const imap = await getImapConnection(config);
+
+  return new Promise((resolve, reject) => {
+    let collected = false;
+    const fetch = imap.fetch(uid, { bodies: '' });
+
+    fetch.on('message', (msg, seqno) => {
+      let chunks = [];
+
+      msg.on('body', (stream, info) => {
+        stream.on('data', (chunk) => chunks.push(chunk));
+        stream.once('end', async () => {
+          if (collected) return;
+          collected = true;
+          try {
+            const parsed = await simpleParser(Buffer.concat(chunks));
+            resolve({
+              subject: parsed.subject || '(no subject)',
+              date: parsed.date ? parsed.date.toLocaleString() : 'No date',
+              from: parsed.from ? parsed.from.text : '',
+              to: parsed.to ? parsed.to.text : '',
+              text: parsed.text || '',
+              html: parsed.html || '',
+            });
+          } catch (e) {
+            reject(new Error('Parse error: ' + e.message));
+          } finally {
+            imap.end();
+          }
+        });
+      });
+
+      msg.once('error', (err) => {
+        if (!collected) {
+          collected = true;
+          reject(new Error('Message error: ' + err.message));
+          imap.end();
+        }
+      });
+    });
+
+    fetch.once('error', (err) => {
+      if (!collected) {
+        collected = true;
+        reject(new Error('Fetch error: ' + err.message));
+        imap.end();
+      }
+    });
+
+    setTimeout(() => {
+      if (!collected) {
+        collected = true;
+        reject(new Error('Timeout fetching email'));
+        imap.end();
+      }
+    }, 15000);
   });
 });

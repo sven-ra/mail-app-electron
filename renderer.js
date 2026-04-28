@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const connectBtn = document.getElementById('connectBtn');
   const statusDiv = document.getElementById('status');
   const inboxList = document.getElementById('inboxList');
+  const emailContent = document.getElementById('emailContent');
 
   // Load saved config on startup
   try {
@@ -29,6 +30,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     statusDiv.textContent = 'Saving config...';
+    emailContent.innerHTML = '';
 
     try {
       await window.electronAPI.saveConfig(config);
@@ -40,11 +42,54 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       emails.reverse().forEach((email) => {
         const li = document.createElement('li');
+        li.style.cursor = 'pointer';
         li.textContent = `${email.date} — ${email.subject}`;
+        li.dataset.uid = email.uid;
+        li.addEventListener('click', () => loadEmail(config, email.uid));
         inboxList.appendChild(li);
       });
     } catch (e) {
       statusDiv.textContent = 'Error: ' + e.message;
     }
   });
+
+  async function loadEmail(config, uid) {
+    if (!uid) {
+      emailContent.textContent = 'Error: no UID available for this email.';
+      return;
+    }
+
+    emailContent.innerHTML = 'Loading email...';
+    statusDiv.textContent = 'Fetching email content...';
+
+    try {
+      const email = await window.electronAPI.fetchEmail(config, uid);
+      statusDiv.textContent = 'Email loaded.';
+
+      const subjectEl = document.createElement('h3');
+      subjectEl.textContent = email.subject;
+
+      const metaEl = document.createElement('div');
+      metaEl.innerHTML = `<b>From:</b> ${escapeHtml(email.from)}<br><b>To:</b> ${escapeHtml(email.to)}<br><b>Date:</b> ${escapeHtml(email.date)}<br><hr>`;
+
+      const bodyEl = document.createElement('pre');
+      bodyEl.style.whiteSpace = 'pre-wrap';
+      bodyEl.style.wordWrap = 'break-word';
+      bodyEl.textContent = email.text || '(no plain text body)';
+
+      emailContent.innerHTML = '';
+      emailContent.appendChild(subjectEl);
+      emailContent.appendChild(metaEl);
+      emailContent.appendChild(bodyEl);
+    } catch (e) {
+      emailContent.textContent = 'Error loading email: ' + e.message;
+      statusDiv.textContent = 'Error loading email.';
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
 });
