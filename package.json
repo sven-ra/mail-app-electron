@@ -4,15 +4,21 @@
   "description": "Simple Electron IMAP email viewer",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
-    "watch": "electronmon ."
+    "build": "vite build",
+    "start": "npm run build && electron .",
+    "watch": "npm run build && electronmon ."
   },
   "dependencies": {
     "electron-store": "^8.1.0",
     "imap": "^0.8.19",
-    "mailparser": "^3.6.5"
+    "mailparser": "^3.6.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "electron": "^28.0.0"
+    "electron": "^28.0.0",
+    "electronmon": "^2.0.2",
+    "vite": "^5.0.0",
+    "@vitejs/plugin-react": "^4.2.0"
   }
 }
