@@ -174,7 +174,6 @@ ipcMain.handle('fetch-inbox', async (event, config) => {
 
         msg.on('body', (stream, info) => {
           stream.on('data', (chunk) => chunks.push(chunk));
-          stream.once('end', () => processMessage());
         });
 
         msg.once('end', () => processMessage());
@@ -211,57 +210,69 @@ ipcMain.handle('fetch-email', async (event, config, uid) => {
 
   return new Promise((resolve, reject) => {
     let collected = false;
-    const fetch = imap.fetch(uid, { bodies: '' });
 
-    fetch.on('message', (msg, seqno) => {
-      let chunks = [];
+    function finish(err, result) {
+      if (collected) return;
+      collected = true;
+      imap.end();
+      if (err) reject(err);
+      else resolve(result);
+    }
 
-      msg.on('body', (stream, info) => {
-        stream.on('data', (chunk) => chunks.push(chunk));
-        stream.once('end', async () => {
-          if (collected) return;
-          collected = true;
-          try {
-            const parsed = await simpleParser(Buffer.concat(chunks));
-            resolve({
-              subject: parsed.subject || '(no subject)',
-              date: parsed.date ? parsed.date.toLocaleString() : 'No date',
-              from: parsed.from ? parsed.from.text : '',
-              to: parsed.to ? parsed.to.text : '',
-              text: parsed.text || '',
-              html: parsed.html || '',
-            });
-          } catch (e) {
-            reject(new Error('Parse error: ' + e.message));
-          } finally {
-            imap.end();
-          }
+    imap.openBox('INBOX', true, (err, box) => {
+      if (err) {
+        return finish(new Error('Failed to open INBOX: ' + err.message));
+      }
+
+      const fetch = imap.fetch(uid, { bodies: '' });
+      let gotMessage = false;
+
+      fetch.on('message', (msg, seqno) => {
+        gotMessage = true;
+        let chunks = [];
+        let bodyDone = false;
+
+        function parseAndResolve() {
+          if (bodyDone) return;
+          bodyDone = true;
+          simpleParser(Buffer.concat(chunks))
+            .then((parsed) => {
+              finish(null, {
+                subject: parsed.subject || '(no subject)',
+                date: parsed.date ? parsed.date.toLocaleString() : 'No date',
+                from: parsed.from ? parsed.from.text : '',
+                to: parsed.to ? parsed.to.text : '',
+                text: parsed.text || '',
+                html: parsed.html || '',
+              });
+            })
+            .catch((e) => finish(new Error('Parse error: ' + e.message)));
+        }
+
+        msg.on('body', (stream, info) => {
+          stream.on('data', (chunk) => chunks.push(chunk));
+          stream.once('end', () => parseAndResolve());
         });
+
+        msg.once('end', () => parseAndResolve());
+        msg.once('error', (err) => finish(new Error('Message error: ' + err.message)));
       });
 
-      msg.once('error', (err) => {
-        if (!collected) {
-          collected = true;
-          reject(new Error('Message error: ' + err.message));
-          imap.end();
+      fetch.once('error', (err) => {
+        finish(new Error('Fetch error: ' + err.message));
+      });
+
+      fetch.once('end', () => {
+        if (!gotMessage) {
+          finish(new Error('No message found for UID ' + uid));
         }
       });
-    });
 
-    fetch.once('error', (err) => {
-      if (!collected) {
-        collected = true;
-        reject(new Error('Fetch error: ' + err.message));
-        imap.end();
-      }
+      setTimeout(() => {
+        if (!collected) {
+          finish(new Error('Timeout fetching email'));
+        }
+      }, 15000);
     });
-
-    setTimeout(() => {
-      if (!collected) {
-        collected = true;
-        reject(new Error('Timeout fetching email'));
-        imap.end();
-      }
-    }, 15000);
   });
 });
