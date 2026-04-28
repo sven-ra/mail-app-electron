@@ -6,7 +6,9 @@
   "scripts": {
     "build": "vite build",
     "start": "npm run build && electron .",
-    "watch": "npm run build && electronmon ."
+    "dev": "concurrently \"vite\" \"NODE_ENV=development electron .\"",
+    "watch": "concurrently \"vite\" \"NODE_ENV=development electronmon .\"",
+    "preview": "vite preview"
   },
   "dependencies": {
     "electron-store": "^8.1.0",
@@ -16,9 +18,10 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.2.0",
+    "concurrently": "^9.2.1",
     "electron": "^28.0.0",
     "electronmon": "^2.0.2",
-    "vite": "^5.0.0",
-    "@vitejs/plugin-react": "^4.2.0"
+    "vite": "^5.0.0"
   }
 }
