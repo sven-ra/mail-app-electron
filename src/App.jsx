@@ -214,7 +214,9 @@ function App() {
     }
   }
 
-  async function loadFolder(mailboxId, folderKey, mailboxOverride) {
+  async function loadFolder(mailboxId, folderKey, mailboxOverride, options = {}) {
+    const { resetSelection = true, restoreSelectionFromStorage = true, showLoadedStatus = true } =
+      options;
     const sourceMailboxes = mailboxOverride || mailboxes;
     const mailbox = sourceMailboxes.find((item) => item.id === mailboxId);
     if (!mailbox) {
@@ -222,8 +224,10 @@ function App() {
     }
     const folderLabel = FOLDERS.find((folder) => folder.key === folderKey)?.label || folderKey;
     setStatus(`Loading ${folderLabel}...`);
-    setSelectedEmail(null);
-    setSelectedEmailUid(null);
+    if (resetSelection) {
+      setSelectedEmail(null);
+      setSelectedEmailUid(null);
+    }
 
     const folderEmails = await window.electronAPI.fetchFolderEmails(
       mailbox,
@@ -235,19 +239,23 @@ function App() {
       .sort((a, b) => Number(b.uid || 0) - Number(a.uid || 0));
     setEmails(sortedEmails);
 
-    const storageKey = getFolderUidStorageKey(mailbox.id, folderKey);
-    const savedUid = localStorage.getItem(storageKey);
+    if (restoreSelectionFromStorage) {
+      const storageKey = getFolderUidStorageKey(mailbox.id, folderKey);
+      const savedUid = localStorage.getItem(storageKey);
 
-    if (savedUid) {
-      const matchingEmail = sortedEmails.find((email) => String(email.uid) === savedUid);
-      if (matchingEmail) {
-        await handleSelectEmail(matchingEmail, mailbox, folderKey);
-        return;
+      if (savedUid) {
+        const matchingEmail = sortedEmails.find((email) => String(email.uid) === savedUid);
+        if (matchingEmail) {
+          await handleSelectEmail(matchingEmail, mailbox, folderKey);
+          return;
+        }
+        localStorage.removeItem(storageKey);
       }
-      localStorage.removeItem(storageKey);
     }
 
-    setStatus(`Loaded ${folderEmails.length} emails from ${folderLabel}.`);
+    if (showLoadedStatus) {
+      setStatus(`Loaded ${folderEmails.length} emails from ${folderLabel}.`);
+    }
   }
 
   async function handleSelectFolder(mailboxId, folderKey) {
@@ -264,6 +272,26 @@ function App() {
       setStatus('Error: ' + e.message);
     }
   }
+
+  useEffect(() => {
+    if (!loggedIn || currentPage !== 'inbox' || !selectedMailboxId || !selectedFolder) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      loadFolder(selectedMailboxId, selectedFolder, undefined, {
+        resetSelection: false,
+        restoreSelectionFromStorage: false,
+        showLoadedStatus: false,
+      }).catch((e) => {
+        setStatus('Error: ' + e.message);
+      });
+    }, 60000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [loggedIn, currentPage, selectedMailboxId, selectedFolder, mailboxes]);
 
   async function handleSelectEmail(email, mailboxOverride, folderKeyOverride) {
     const mailbox =
