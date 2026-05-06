@@ -1,14 +1,14 @@
 import React from 'react';
 import styles from './InboxPanel.module.css';
 
-function InboxPanel({ emails, onSelectEmail }) {
+function InboxPanel({ title, emails, onSelectEmail }) {
   return (
     <section className={styles.inboxSection}>
-      <h2>Inbox</h2>
+      <h2>{title}</h2>
       <ul className={styles.list}>
-        {emails.map((email, index) => (
+        {emails.map((email) => (
           <li
-            key={index}
+            key={email.uid || `${email.date}-${email.subject}`}
             className={styles.item}
             onClick={() => onSelectEmail(email)}
           >

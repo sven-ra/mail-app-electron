@@ -4,6 +4,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
   clearConfig: () => ipcRenderer.invoke('clear-config'),
-  fetchInbox: (config) => ipcRenderer.invoke('fetch-inbox', config),
-  fetchEmail: (config, uid) => ipcRenderer.invoke('fetch-email', config, uid),
+  listMailboxes: (config) => ipcRenderer.invoke('list-mailboxes', config),
+  fetchFolderEmails: (config, folderKey, mailboxMap) =>
+    ipcRenderer.invoke('fetch-folder-emails', config, folderKey, mailboxMap),
+  fetchFolderEmail: (config, folderKey, uid, mailboxMap) =>
+    ipcRenderer.invoke('fetch-folder-email', config, folderKey, uid, mailboxMap),
 });

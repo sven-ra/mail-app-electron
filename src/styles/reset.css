@@ -1,0 +1,32 @@
+button {
+  cursor: pointer;
+  all: unset;
+}
+
+/* Reset all elements except specified parent and child elements */
+*:not(canvas, iframe, img, svg, video, svg *, symbol *) {
+  all: unset;
+  display: revert;
+  box-sizing: border-box;
+}
+
+/* Ensure consistent box-sizing */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+a,
+button {
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0;
+}

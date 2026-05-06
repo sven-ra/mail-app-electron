@@ -101,9 +101,119 @@ function decodeSubject(subject) {
   }
 }
 
-// IPC: fetch inbox headers (subject + date + uid)
-ipcMain.handle('fetch-inbox', async (event, config) => {
+const MAILBOX_DETECTION_RULES = {
+  inbox: {
+    attrs: ['\\inbox'],
+    names: ['inbox'],
+  },
+  drafts: {
+    attrs: ['\\drafts'],
+    names: ['drafts', 'draft'],
+  },
+  sent: {
+    attrs: ['\\sent'],
+    names: ['sent', 'sent items', 'sent mail', 'sent messages'],
+  },
+  junk: {
+    attrs: ['\\junk', '\\spam'],
+    names: ['junk', 'spam', 'bulk mail'],
+  },
+  bin: {
+    attrs: ['\\trash', '\\deleted'],
+    names: ['trash', 'bin', 'deleted', 'deleted items'],
+  },
+  archive: {
+    attrs: ['\\archive', '\\all'],
+    names: ['archive', 'all mail'],
+  },
+};
+
+function flattenBoxes(boxes, parentPath = '') {
+  const entries = [];
+
+  Object.entries(boxes || {}).forEach(([name, details]) => {
+    const delimiter = details.delimiter || '/';
+    const fullPath = parentPath ? `${parentPath}${delimiter}${name}` : name;
+    entries.push({
+      path: fullPath,
+      lowerPath: fullPath.toLowerCase(),
+      attrs: (details.attribs || []).map((attr) => String(attr).toLowerCase()),
+    });
+
+    if (details.children) {
+      entries.push(...flattenBoxes(details.children, fullPath));
+    }
+  });
+
+  return entries;
+}
+
+function detectMailboxMap(boxes) {
+  const entries = flattenBoxes(boxes);
+  const resolved = {};
+
+  Object.entries(MAILBOX_DETECTION_RULES).forEach(([folderKey, rule]) => {
+    const attrMatch = entries.find((entry) =>
+      entry.attrs.some((attr) => rule.attrs.includes(attr))
+    );
+    if (attrMatch) {
+      resolved[folderKey] = attrMatch.path;
+      return;
+    }
+
+    const nameMatch = entries.find((entry) =>
+      rule.names.includes(entry.lowerPath.split(/[/.]/).pop())
+    );
+    if (nameMatch) {
+      resolved[folderKey] = nameMatch.path;
+    }
+  });
+
+  if (!resolved.inbox) {
+    resolved.inbox = 'INBOX';
+  }
+
+  return resolved;
+}
+
+async function discoverMailboxes(config) {
   const imap = await getImapConnection(config);
+
+  return new Promise((resolve, reject) => {
+    imap.getBoxes((err, boxes) => {
+      imap.end();
+      if (err) {
+        reject(new Error('Failed to list mailboxes: ' + err.message));
+        return;
+      }
+
+      resolve(detectMailboxMap(boxes));
+    });
+  });
+}
+
+function getMailboxPath(folderKey, mailboxMap) {
+  const folderPath = mailboxMap?.[folderKey];
+  if (folderPath) {
+    return folderPath;
+  }
+
+  if (folderKey === 'inbox') {
+    return 'INBOX';
+  }
+
+  throw new Error(`No mailbox found for folder "${folderKey}"`);
+}
+
+// IPC: discover mailbox paths by logical folder key
+ipcMain.handle('list-mailboxes', async (event, config) => {
+  return discoverMailboxes(config);
+});
+
+// IPC: fetch folder headers (subject + date + uid)
+ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMap = {}) => {
+  const imap = await getImapConnection(config);
+  const mailboxPath = getMailboxPath(folderKey, mailboxMap);
 
   return new Promise((resolve, reject) => {
     const emails = [];
@@ -121,10 +231,10 @@ ipcMain.handle('fetch-inbox', async (event, config) => {
       }
     }
 
-    imap.openBox('INBOX', true, (err, box) => {
+    imap.openBox(mailboxPath, true, (err, box) => {
       if (err) {
         imap.end();
-        return reject(new Error('Failed to open INBOX: ' + err.message));
+        return reject(new Error(`Failed to open ${mailboxPath}: ` + err.message));
       }
 
       const total = box.messages.total;
@@ -204,9 +314,10 @@ ipcMain.handle('fetch-inbox', async (event, config) => {
   });
 });
 
-// IPC: fetch full email content by UID
-ipcMain.handle('fetch-email', async (event, config, uid) => {
+// IPC: fetch full email content by UID from selected folder
+ipcMain.handle('fetch-folder-email', async (event, config, folderKey, uid, mailboxMap = {}) => {
   const imap = await getImapConnection(config);
+  const mailboxPath = getMailboxPath(folderKey, mailboxMap);
 
   return new Promise((resolve, reject) => {
     let collected = false;
@@ -219,9 +330,9 @@ ipcMain.handle('fetch-email', async (event, config, uid) => {
       else resolve(result);
     }
 
-    imap.openBox('INBOX', true, (err, box) => {
+    imap.openBox(mailboxPath, true, (err, box) => {
       if (err) {
-        return finish(new Error('Failed to open INBOX: ' + err.message));
+        return finish(new Error(`Failed to open ${mailboxPath}: ` + err.message));
       }
 
       const fetch = imap.fetch(uid, { bodies: '' });
