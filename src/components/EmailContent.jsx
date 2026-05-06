@@ -18,9 +18,49 @@ function EmailContent({ email }) {
         <br />
         <hr />
       </div>
-      <pre className={styles.body}>{email.text || '(no plain text body)'}</pre>
+      <div className={styles.body}>
+        {renderThreadedBody(email.text || '(no plain text body)')}
+      </div>
     </article>
   );
+}
+
+function renderThreadedBody(text) {
+  return String(text)
+    .split(/\r?\n/)
+    .map((line, index) => {
+      const { depth, content } = extractQuoteDepth(line);
+      const className = `${styles.bodyLine} ${depth > 0 ? styles.bodyLineQuoted : ''}`.trim();
+      return (
+        <div
+          key={`${index}-${depth}`}
+          className={className}
+          style={{ '--quote-depth': depth }}
+        >
+          {content}
+        </div>
+      );
+    });
+}
+
+function extractQuoteDepth(line) {
+  const value = String(line || '');
+  let index = 0;
+
+  while (value[index] === ' ') {
+    index += 1;
+  }
+
+  let depth = 0;
+  while (value[index] === '>') {
+    depth += 1;
+    index += 1;
+    while (value[index] === ' ') {
+      index += 1;
+    }
+  }
+
+  return { depth, content: value.slice(index) };
 }
 
 function escapeHtml(text) {

@@ -1,8 +1,9 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const Imap = require('imap');
 const { simpleParser } = require('mailparser');
+const crypto = require('node:crypto');
 let libmime = null;
 try {
   libmime = require('libmime');
@@ -11,8 +12,101 @@ try {
 }
 
 const store = new Store();
+const PASSWORD_SCHEME_SAFE = 'safe:v1:';
+const PASSWORD_SCHEME_FALLBACK = 'fallback:v1:';
+const PASSWORD_FALLBACK_SALT = 'mail-electron-password-salt';
 
 let mainWindow;
+
+function getFallbackKey() {
+  return crypto.scryptSync(app.getPath('userData'), PASSWORD_FALLBACK_SALT, 32);
+}
+
+function encryptPassword(password) {
+  if (!password) return '';
+
+  if (safeStorage.isEncryptionAvailable()) {
+    const encrypted = safeStorage.encryptString(password);
+    return PASSWORD_SCHEME_SAFE + encrypted.toString('base64');
+  }
+
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', getFallbackKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(password, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return PASSWORD_SCHEME_FALLBACK + Buffer.concat([iv, tag, encrypted]).toString('base64');
+}
+
+function decryptPassword(storedPassword) {
+  if (!storedPassword) return '';
+
+  if (storedPassword.startsWith(PASSWORD_SCHEME_SAFE)) {
+    const raw = storedPassword.slice(PASSWORD_SCHEME_SAFE.length);
+    const encrypted = Buffer.from(raw, 'base64');
+    return safeStorage.decryptString(encrypted);
+  }
+
+  if (storedPassword.startsWith(PASSWORD_SCHEME_FALLBACK)) {
+    const raw = storedPassword.slice(PASSWORD_SCHEME_FALLBACK.length);
+    const data = Buffer.from(raw, 'base64');
+    const iv = data.subarray(0, 12);
+    const tag = data.subarray(12, 28);
+    const encrypted = data.subarray(28);
+    const decipher = crypto.createDecipheriv('aes-256-gcm', getFallbackKey(), iv);
+    decipher.setAuthTag(tag);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
+    return decrypted.toString('utf8');
+  }
+
+  throw new Error('Unsupported password format');
+}
+
+function isEncryptedPassword(value) {
+  if (!value) return true;
+  return (
+    value.startsWith(PASSWORD_SCHEME_SAFE) ||
+    value.startsWith(PASSWORD_SCHEME_FALLBACK)
+  );
+}
+
+function serializeConfig(config = {}) {
+  return {
+    ...config,
+    password: encryptPassword(config.password || ''),
+  };
+}
+
+function deserializeConfig(config = {}) {
+  return {
+    ...config,
+    password: decryptPassword(config.password || ''),
+  };
+}
+
+function serializeConfigList(configs = []) {
+  return configs.map((config) => serializeConfig(config));
+}
+
+function deserializeConfigList(configs = []) {
+  return configs.map((config) => deserializeConfig(config));
+}
+
+function migrateLegacyPlainTextConfigs() {
+  const singleConfig = store.get('imapConfig');
+  if (singleConfig?.password && !isEncryptedPassword(singleConfig.password)) {
+    store.set('imapConfig', serializeConfig(singleConfig));
+  }
+
+  const listConfigs = store.get('imapConfigs');
+  if (Array.isArray(listConfigs)) {
+    const hasPlainText = listConfigs.some(
+      (config) => config?.password && !isEncryptedPassword(config.password)
+    );
+    if (hasPlainText) {
+      store.set('imapConfigs', serializeConfigList(listConfigs));
+    }
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -32,7 +126,10 @@ function createWindow() {
   }
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  migrateLegacyPlainTextConfigs();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
@@ -44,18 +141,28 @@ app.on('activate', () => {
 
 // IPC: get saved IMAP config
 ipcMain.handle('get-config', () => {
-  return store.get('imapConfig') || {};
+  return deserializeConfig(store.get('imapConfig') || {});
 });
 
 // IPC: save IMAP config
 ipcMain.handle('save-config', (event, config) => {
-  store.set('imapConfig', config);
+  store.set('imapConfig', serializeConfig(config));
+  return true;
+});
+
+ipcMain.handle('get-mailbox-configs', () => {
+  return deserializeConfigList(store.get('imapConfigs') || []);
+});
+
+ipcMain.handle('save-mailbox-configs', (event, configs) => {
+  store.set('imapConfigs', serializeConfigList(configs || []));
   return true;
 });
 
 // IPC: clear saved IMAP config
 ipcMain.handle('clear-config', () => {
   store.delete('imapConfig');
+  store.delete('imapConfigs');
   return true;
 });
 
@@ -88,7 +195,8 @@ function parseInboxHeaders(buf) {
   const headers = Imap.parseHeader(buf.toString('utf8'));
   const subject = headers.subject?.[0] || '(no subject)';
   const dateStr = headers.date?.[0] || null;
-  return { subject, dateStr };
+  const from = headers.from?.[0] || '';
+  return { subject, dateStr, from };
 }
 
 function decodeSubject(subject) {
@@ -99,6 +207,32 @@ function decodeSubject(subject) {
   } catch (e) {
     return subject;
   }
+}
+
+function normalizeMessageId(value) {
+  if (!value) return '';
+  const cleaned = String(value).trim().replace(/^<|>$/g, '');
+  return cleaned;
+}
+
+function normalizeReferences(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeMessageId(item)).filter(Boolean);
+  }
+  return String(value)
+    .split(/\s+/)
+    .map((item) => normalizeMessageId(item))
+    .filter(Boolean);
+}
+
+function getPreviewLines(text) {
+  if (!text) return [];
+  return String(text)
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 2);
 }
 
 const MAILBOX_DETECTION_RULES = {
@@ -267,14 +401,34 @@ ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMa
               skipTextToHtml: true,
               skipImageLinks: true,
               skipTextLinks: true,
-              skipText: true,
               skipHtml: true,
             });
             const fallback = parseInboxHeaders(rawHeaders);
             const subject = decodeSubject(parsed.subject || fallback.subject);
             const dateValue = parsed.date || fallback.dateStr;
             const date = dateValue ? new Date(dateValue).toLocaleString() : 'No date';
-            emails.push({ uid, subject, date });
+            const dateRaw = dateValue ? new Date(dateValue).toISOString() : '';
+            const from =
+              parsed.from?.value?.[0]?.name ||
+              parsed.from?.value?.[0]?.address ||
+              parsed.from?.text ||
+              fallback.from ||
+              '';
+            const previewLines = getPreviewLines(parsed.text);
+            const messageId = normalizeMessageId(parsed.messageId);
+            const inReplyTo = normalizeMessageId(parsed.inReplyTo);
+            const references = normalizeReferences(parsed.references);
+            emails.push({
+              uid,
+              subject,
+              date,
+              dateRaw,
+              from,
+              previewLines,
+              messageId,
+              inReplyTo,
+              references,
+            });
           } catch (e) {
             emails.push({ uid, subject: '(parse error)', date: 'No date' });
           }

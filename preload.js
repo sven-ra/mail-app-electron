@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   getConfig: () => ipcRenderer.invoke('get-config'),
   saveConfig: (config) => ipcRenderer.invoke('save-config', config),
+  getMailboxConfigs: () => ipcRenderer.invoke('get-mailbox-configs'),
+  saveMailboxConfigs: (configs) => ipcRenderer.invoke('save-mailbox-configs', configs),
   clearConfig: () => ipcRenderer.invoke('clear-config'),
   listMailboxes: (config) => ipcRenderer.invoke('list-mailboxes', config),
   fetchFolderEmails: (config, folderKey, mailboxMap) =>

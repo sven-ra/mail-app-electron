@@ -3,11 +3,25 @@
   top: 1rem;
   right: 1rem;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
   gap: 12px;
 }
 
+.navButton {
+  padding: 6px 10px;
+  border: 1px solid #d2d2d2;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.navButtonActive {
+  background: #f0f5ff;
+  border-color: #8ea5e9;
+}
+
 .logoutButton {
-  align-self: flex-start;
+  padding: 6px 10px;
+  border: 1px solid #d2d2d2;
+  border-radius: 6px;
+  background: #fff;
 }
