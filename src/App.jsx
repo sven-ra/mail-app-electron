@@ -8,6 +8,8 @@ import styles from './App.module.css';
 
 const EMPTY_CONFIG = { host: '', username: '', password: '' };
 const LAST_SELECTED_EMAIL_UID_PREFIX = 'lastSelectedEmailUid:';
+const LAST_SELECTED_MAILBOX_ID_KEY = 'lastSelectedMailboxId';
+const LAST_SELECTED_FOLDER_KEY = 'lastSelectedFolder';
 const FOLDERS = [
   { key: 'inbox', label: 'INBOX' },
   { key: 'drafts', label: 'drafts' },
@@ -64,6 +66,7 @@ function App() {
   const [currentPage, setCurrentPage] = useState('inbox');
   const [selectedSettingsMailboxId, setSelectedSettingsMailboxId] = useState(null);
   const threadGroups = useMemo(() => groupEmailsByThread(emails), [emails]);
+  const validFolderKeys = useMemo(() => new Set(FOLDERS.map((folder) => folder.key)), []);
 
   useEffect(() => {
     async function loadConfigs() {
@@ -94,9 +97,15 @@ function App() {
 
         setMailboxes(resolvedMailboxes);
         await window.electronAPI.saveMailboxConfigs(resolvedMailboxes);
-        setSelectedMailboxId(resolvedMailboxes[0].id);
+        const savedMailboxId = localStorage.getItem(LAST_SELECTED_MAILBOX_ID_KEY);
+        const savedFolder = localStorage.getItem(LAST_SELECTED_FOLDER_KEY);
+        const initialMailbox =
+          resolvedMailboxes.find((mailbox) => mailbox.id === savedMailboxId) || resolvedMailboxes[0];
+        const initialFolder = validFolderKeys.has(savedFolder) ? savedFolder : FOLDERS[0].key;
+        setSelectedMailboxId(initialMailbox.id);
+        setSelectedFolder(initialFolder);
         setLoggedIn(true);
-        await loadFolder(resolvedMailboxes[0].id, FOLDERS[0].key, resolvedMailboxes);
+        await loadFolder(initialMailbox.id, initialFolder, resolvedMailboxes);
       } catch (e) {
         setStatus('Error loading config: ' + e.message);
       }
@@ -152,6 +161,8 @@ function App() {
       setSelectedMailboxId(null);
       setEmails([]);
       setSelectedEmail(null);
+      localStorage.removeItem(LAST_SELECTED_MAILBOX_ID_KEY);
+      localStorage.removeItem(LAST_SELECTED_FOLDER_KEY);
       mailboxIds.forEach((mailboxId) => {
         FOLDERS.forEach((folder) => {
           localStorage.removeItem(getFolderUidStorageKey(mailboxId, folder.key));
@@ -204,6 +215,8 @@ function App() {
   async function handleSelectFolder(mailboxId, folderKey) {
     setSelectedMailboxId(mailboxId);
     setSelectedFolder(folderKey);
+    localStorage.setItem(LAST_SELECTED_MAILBOX_ID_KEY, mailboxId);
+    localStorage.setItem(LAST_SELECTED_FOLDER_KEY, folderKey);
 
     try {
       await loadFolder(mailboxId, folderKey);
@@ -277,7 +290,12 @@ function App() {
       }
 
       if (mailboxes.length) {
-        await handleSelectFolder(mailboxes[0].id, FOLDERS[0].key);
+        const savedMailboxId = localStorage.getItem(LAST_SELECTED_MAILBOX_ID_KEY);
+        const savedFolder = localStorage.getItem(LAST_SELECTED_FOLDER_KEY);
+        const fallbackMailbox =
+          mailboxes.find((mailbox) => mailbox.id === savedMailboxId) || mailboxes[0];
+        const fallbackFolder = validFolderKeys.has(savedFolder) ? savedFolder : FOLDERS[0].key;
+        await handleSelectFolder(fallbackMailbox.id, fallbackFolder);
       }
     } catch (e) {
       setStatus('Error: ' + e.message);
