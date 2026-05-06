@@ -5,6 +5,8 @@ function EmailContent({ email }) {
   if (!email) return <div>Click an email to view content.</div>;
   if (email.loading) return <div>Loading email...</div>;
   if (email.error) return <div>{email.error}</div>;
+  const htmlBody = getHtmlBody(email.html);
+  const hasHtmlBody = Boolean(htmlBody);
 
   return (
     <article className={styles.content}>
@@ -18,9 +20,18 @@ function EmailContent({ email }) {
         <br />
         <hr />
       </div>
-      <div className={styles.body}>
-        {renderThreadedBody(email.text || '(no plain text body)')}
-      </div>
+      {hasHtmlBody ? (
+        <iframe
+          className={styles.htmlFrame}
+          title="Email HTML content"
+          sandbox=""
+          srcDoc={htmlBody}
+        />
+      ) : (
+        <div className={styles.body}>
+          {renderThreadedBody(email.text || '(no plain text body)')}
+        </div>
+      )}
     </article>
   );
 }
@@ -67,6 +78,16 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text || '';
   return div.innerHTML;
+}
+
+function getHtmlBody(html) {
+  if (typeof html === 'string') {
+    return html.trim();
+  }
+  if (html == null) {
+    return '';
+  }
+  return String(html).trim();
 }
 
 export default EmailContent;

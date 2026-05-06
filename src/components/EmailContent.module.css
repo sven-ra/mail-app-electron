@@ -11,6 +11,13 @@
   gap: 2px;
 }
 
+.htmlFrame {
+  width: 100%;
+  min-height: 70vh;
+  border: 0;
+  background: #fff;
+}
+
 .bodyLine {
   min-height: 1.3em;
   white-space: pre-wrap;
