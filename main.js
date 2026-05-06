@@ -3,6 +3,12 @@ const path = require('path');
 const Store = require('electron-store');
 const Imap = require('imap');
 const { simpleParser } = require('mailparser');
+let libmime = null;
+try {
+  libmime = require('libmime');
+} catch (e) {
+  libmime = null;
+}
 
 const store = new Store();
 
@@ -77,46 +83,22 @@ async function getImapConnection(config) {
   }
 }
 
-function decodeMimeWord(str) {
-  return str.replace(/=\?([\w-]+)\?(Q|B)\?([^?]+)\?=/gi, (match, charset, encoding, text) => {
-    try {
-      if (encoding.toUpperCase() === 'Q') {
-        const decoded = text.replace(/_/g, ' ')
-          .replace(/=([0-9A-F]{2})/gi, (m, hex) => String.fromCharCode(parseInt(hex, 16)));
-        return decoded;
-      } else if (encoding.toUpperCase() === 'B') {
-        const decoded = Buffer.from(text.replace(/[^A-Za-z0-9+\/=]/g, ''), 'base64').toString();
-        return decoded;
-      }
-    } catch (e) {
-      return match;
-    }
-    return match;
-  });
+function parseInboxHeaders(buf) {
+  // Fast fallback parser for header-only fetches.
+  const headers = Imap.parseHeader(buf.toString('utf8'));
+  const subject = headers.subject?.[0] || '(no subject)';
+  const dateStr = headers.date?.[0] || null;
+  return { subject, dateStr };
 }
 
-function parseHeaders(buf) {
-  const text = buf.toString('utf8');
-  const lines = text.split(/\r?\n/);
-  const headers = {};
-  let currentKey = null;
-
-  for (const line of lines) {
-    if (line.startsWith(' ') || line.startsWith('\t')) {
-      if (currentKey) {
-        headers[currentKey] = (headers[currentKey] || '') + line;
-      }
-    } else {
-      const match = line.match(/^([^:]+):\s*(.*)$/);
-      if (match) {
-        currentKey = match[1].toLowerCase();
-        headers[currentKey] = match[2];
-      } else {
-        currentKey = null;
-      }
-    }
+function decodeSubject(subject) {
+  if (!subject) return '(no subject)';
+  if (!libmime || typeof libmime.decodeWords !== 'function') return subject;
+  try {
+    return libmime.decodeWords(subject);
+  } catch (e) {
+    return subject;
   }
-  return headers;
 }
 
 // IPC: fetch inbox headers (subject + date + uid)
@@ -153,7 +135,7 @@ ipcMain.handle('fetch-inbox', async (event, config) => {
 
       const start = Math.max(1, total - 49);
       const range = `${start}:${total}`;
-      const fetch = imap.seq.fetch(range, { bodies: 'HEADER' });
+      const fetch = imap.seq.fetch(range, { bodies: '' });
 
       fetch.on('message', (msg, seqno) => {
         totalFetched++;
@@ -165,15 +147,23 @@ ipcMain.handle('fetch-inbox', async (event, config) => {
           uid = attrs.uid;
         });
 
-        function processMessage() {
+        async function processMessage() {
           if (messageDone) return;
           messageDone = true;
           try {
-            const parsed = parseHeaders(Buffer.concat(chunks));
-            let subject = parsed.subject || '(no subject)';
-            subject = decodeMimeWord(subject);
-            const dateStr = parsed.date || null;
-            const date = dateStr ? new Date(dateStr).toLocaleString() : 'No date';
+            const rawHeaders = Buffer.concat(chunks);
+            const parsed = await simpleParser(rawHeaders, {
+              skipHtmlToText: true,
+              skipTextToHtml: true,
+              skipImageLinks: true,
+              skipTextLinks: true,
+              skipText: true,
+              skipHtml: true,
+            });
+            const fallback = parseInboxHeaders(rawHeaders);
+            const subject = decodeSubject(parsed.subject || fallback.subject);
+            const dateValue = parsed.date || fallback.dateStr;
+            const date = dateValue ? new Date(dateValue).toLocaleString() : 'No date';
             emails.push({ uid, subject, date });
           } catch (e) {
             emails.push({ uid, subject: '(parse error)', date: 'No date' });
