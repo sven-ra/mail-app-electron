@@ -6,6 +6,7 @@ import EmailContent from './components/EmailContent.jsx';
 import styles from './App.module.css';
 
 const EMPTY_CONFIG = { host: '', username: '', password: '' };
+const LAST_SELECTED_EMAIL_UID_KEY = 'lastSelectedEmailUid';
 
 function App() {
   const [config, setConfig] = useState(EMPTY_CONFIG);
@@ -47,8 +48,22 @@ function App() {
       setStatus('Connecting to IMAP...');
 
       const inbox = await window.electronAPI.fetchInbox(loginConfig);
-      setEmails(inbox.reverse());
-      setStatus(`Loaded ${inbox.length} emails.`);
+      const sortedInbox = inbox.reverse();
+      setEmails(sortedInbox);
+      const savedUid = localStorage.getItem(LAST_SELECTED_EMAIL_UID_KEY);
+
+      if (savedUid) {
+        const matchingEmail = sortedInbox.find((email) => String(email.uid) === savedUid);
+        if (matchingEmail) {
+          await handleSelectEmail(matchingEmail, loginConfig);
+        } else {
+          localStorage.removeItem(LAST_SELECTED_EMAIL_UID_KEY);
+          setStatus(`Loaded ${inbox.length} emails.`);
+        }
+      } else {
+        setStatus(`Loaded ${inbox.length} emails.`);
+      }
+
       setLoggedIn(true);
     } catch (e) {
       setStatus('Error: ' + e.message);
@@ -61,6 +76,7 @@ function App() {
       setConfig(EMPTY_CONFIG);
       setEmails([]);
       setSelectedEmail(null);
+      localStorage.removeItem(LAST_SELECTED_EMAIL_UID_KEY);
       setStatus('Logged out.');
       setLoggedIn(false);
     } catch (e) {
@@ -68,8 +84,9 @@ function App() {
     }
   }
 
-  async function handleSelectEmail(email) {
+  async function handleSelectEmail(email, configOverride) {
     if (!email.uid) {
+      localStorage.removeItem(LAST_SELECTED_EMAIL_UID_KEY);
       setSelectedEmail({ error: 'Error: no UID available for this email.' });
       return;
     }
@@ -78,8 +95,9 @@ function App() {
     setSelectedEmail({ loading: true });
 
     try {
-      const content = await window.electronAPI.fetchEmail(config, email.uid);
+      const content = await window.electronAPI.fetchEmail(configOverride || config, email.uid);
       setSelectedEmail(content);
+      localStorage.setItem(LAST_SELECTED_EMAIL_UID_KEY, String(email.uid));
       setStatus('Email loaded.');
     } catch (e) {
       setSelectedEmail({ error: 'Error loading email: ' + e.message });
