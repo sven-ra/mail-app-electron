@@ -1,7 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import AppHeader from './components/AppHeader.jsx';
+import LoginForm from './components/LoginForm.jsx';
+import InboxPanel from './components/InboxPanel.jsx';
+import EmailContent from './components/EmailContent.jsx';
+import styles from './App.module.css';
+
+const EMPTY_CONFIG = { host: '', username: '', password: '' };
 
 function App() {
-  const [config, setConfig] = useState({ host: '', username: '', password: '' });
+  const [config, setConfig] = useState(EMPTY_CONFIG);
   const [emails, setEmails] = useState([]);
   const [selectedEmail, setSelectedEmail] = useState(null);
   const [status, setStatus] = useState('');
@@ -51,7 +58,7 @@ function App() {
   async function handleLogout() {
     try {
       await window.electronAPI.clearConfig();
-      setConfig({ host: '', username: '', password: '' });
+      setConfig(EMPTY_CONFIG);
       setEmails([]);
       setSelectedEmail(null);
       setStatus('Logged out.');
@@ -80,114 +87,35 @@ function App() {
     }
   }
 
+  function handleConfigChange(field, value) {
+    setConfig((current) => ({ ...current, [field]: value }));
+  }
+
   return (
-    <div>
-      <table width="100%">
-        <tbody>
-          <tr>
-            <td><h1>Email Viewer</h1></td>
-            <td align="right" valign="top">
-              {loggedIn && (
-                <button onClick={handleLogout}>Logout</button>
-              )}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <div className={styles.app}>
+      <AppHeader loggedIn={loggedIn} onLogout={handleLogout} />
 
       {!loggedIn && (
-        <div>
-          <label>
-            Host:{' '}
-            <input
-              type="text"
-              value={config.host}
-              onChange={(e) => setConfig({ ...config, host: e.target.value })}
-            />
-          </label>
-          <br />
-          <label>
-            Username:{' '}
-            <input
-              type="text"
-              value={config.username}
-              onChange={(e) => setConfig({ ...config, username: e.target.value })}
-            />
-          </label>
-          <br />
-          <label>
-            Password:{' '}
-            <input
-              type="password"
-              value={config.password}
-              onChange={(e) => setConfig({ ...config, password: e.target.value })}
-            />
-          </label>
-          <br />
-          <button onClick={() => handleLogin(config)}>Save & Connect</button>
-        </div>
+        <LoginForm
+          config={config}
+          onConfigChange={handleConfigChange}
+          onConnect={() => handleLogin(config)}
+        />
       )}
 
-      <div>{status}</div>
+      <div className={styles.status}>{status}</div>
 
       {loggedIn && (
-        <table width="100%">
-          <tbody>
-            <tr valign="top">
-              <td width="40%">
-                <h2>Inbox</h2>
-                <ul>
-                  {emails.map((email, i) => (
-                    <li
-                      key={i}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => handleSelectEmail(email)}
-                    >
-                      {email.date} — {email.subject}
-                    </li>
-                  ))}
-                </ul>
-              </td>
-              <td width="60%">
-                <h2>Content</h2>
-                <EmailContent email={selectedEmail} />
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <main className={styles.mainLayout}>
+          <InboxPanel emails={emails} onSelectEmail={handleSelectEmail} />
+          <section className={styles.contentSection}>
+            <h2>Content</h2>
+            <EmailContent email={selectedEmail} />
+          </section>
+        </main>
       )}
     </div>
   );
-}
-
-function EmailContent({ email }) {
-  if (!email) return <div>Click an email to view content.</div>;
-  if (email.loading) return <div>Loading email...</div>;
-  if (email.error) return <div>{email.error}</div>;
-
-  return (
-    <div>
-      <h3>{email.subject}</h3>
-      <div>
-        <b>From:</b> {escapeHtml(email.from)}
-        <br />
-        <b>To:</b> {escapeHtml(email.to)}
-        <br />
-        <b>Date:</b> {escapeHtml(email.date)}
-        <br />
-        <hr />
-      </div>
-      <pre style={{ whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}>
-        {email.text || '(no plain text body)'}
-      </pre>
-    </div>
-  );
-}
-
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text || '';
-  return div.innerHTML;
 }
 
 export default App;

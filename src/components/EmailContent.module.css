@@ -1,0 +1,12 @@
+.content {
+  min-width: 0;
+}
+
+.meta {
+  margin-bottom: 8px;
+}
+
+.body {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}

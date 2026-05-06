@@ -1,0 +1,17 @@
+.form {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+  max-width: 560px;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+}
+
+.connectButton {
+  width: fit-content;
+}
