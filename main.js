@@ -51,6 +51,9 @@ function buildAppMenu() {
       role: 'editMenu',
     },
     {
+      role: 'viewMenu',
+    },
+    {
       role: 'windowMenu',
     },
   ];

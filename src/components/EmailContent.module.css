@@ -1,5 +1,10 @@
 .content {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 100%;
+  overflow: hidden;
 }
 
 .meta {
@@ -11,11 +16,23 @@
   gap: 2px;
 }
 
+.messageArea {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid #d2d2d2;
+}
+
 .htmlFrame {
+  display: block;
   width: 100%;
   min-height: 70vh;
   border: 0;
   background: #fff;
+  position: relative;
+  z-index: 0;
+  pointer-events: none;
 }
 
 .bodyLine {
@@ -26,15 +43,72 @@
 
 .bodyLineQuoted {
   padding-left: calc(var(--quote-depth) * 12px + 8px);
-  background-image: repeating-linear-gradient(
-    to right,
-    transparent 0,
-    transparent 8px,
-    rgba(148, 163, 184, 0.75) 8px,
-    rgba(148, 163, 184, 0.75) 9px,
-    transparent 9px,
-    transparent 12px
-  );
+  background-image: repeating-linear-gradient(to right,
+      transparent 0,
+      transparent 8px,
+      rgba(148, 163, 184, 0.75) 8px,
+      rgba(148, 163, 184, 0.75) 9px,
+      transparent 9px,
+      transparent 12px);
   background-size: calc(var(--quote-depth) * 12px) 100%;
   background-repeat: no-repeat;
+}
+
+.editorDock {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  padding-top: 8px;
+  padding-bottom: 8px;
+  background: #fff;
+  border-top: 1px solid #d2d2d2;
+  pointer-events: auto;
+}
+
+.editorToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.toolbarButton {
+  padding: 6px 10px;
+  border: 1px solid #d2d2d2;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.toolbarButtonActive {
+  background: #f0f5ff;
+  border-color: #8ea5e9;
+}
+
+.editorContent {
+  border: 1px solid #d2d2d2;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.editorContent :global(.tiptap) {
+  min-height: 120px;
+  padding: 10px;
+  outline: none;
+}
+
+.editorContent :global(.ProseMirror) {
+  cursor: text;
+}
+
+.proseMirrorEditable {
+  min-height: 120px;
+  padding: 10px;
+  outline: none;
+  cursor: text;
+  pointer-events: auto;
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-user-modify: read-write;
+  white-space: pre-wrap;
 }

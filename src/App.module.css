@@ -1,5 +1,4 @@
 .app {
-  padding: 16px;
   height: 100vh;
   display: flex;
   flex-direction: column;
@@ -19,10 +18,8 @@
 }
 
 .mainLayout {
-  margin-top: 16px;
   display: grid;
   grid-template-columns: 220px 420px 12px minmax(0, 1fr);
-  gap: 16px;
   align-items: stretch;
   flex: 1;
   min-height: 0;
@@ -40,6 +37,7 @@
   align-self: start;
   max-height: 100%;
   overflow: auto;
+  padding: 8px;
 }
 
 .mailboxGroup {
@@ -77,6 +75,7 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
+  padding: 8px;
 }
 
 .columnResizer {

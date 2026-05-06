@@ -477,7 +477,6 @@ function App() {
             onPointerDown={handleStartInboxResize}
           />
           <section className={styles.contentSection}>
-            <h2>Content</h2>
             <EmailContent email={selectedEmail} />
           </section>
         </main>

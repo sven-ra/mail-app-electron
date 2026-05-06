@@ -1,7 +1,25 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
 import styles from './EmailContent.module.css';
 
 function EmailContent({ email }) {
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: '',
+    editable: true,
+    editorProps: {
+      attributes: {
+        class: styles.proseMirrorEditable,
+      },
+    },
+  });
+
+  useEffect(() => {
+    if (!editor) return;
+    editor.commands.focus('end');
+  }, [editor]);
+
   if (!email) return <div>Click an email to view content.</div>;
   if (email.loading) return <div>Loading email...</div>;
   if (email.error) return <div>{email.error}</div>;
@@ -20,18 +38,73 @@ function EmailContent({ email }) {
         <br />
         <hr />
       </div>
-      {hasHtmlBody ? (
-        <iframe
-          className={styles.htmlFrame}
-          title="Email HTML content"
-          sandbox=""
-          srcDoc={htmlBody}
-        />
-      ) : (
-        <div className={styles.body}>
-          {renderThreadedBody(email.text || '(no plain text body)')}
+      <div className={styles.messageArea}>
+        {hasHtmlBody ? (
+          <iframe
+            className={styles.htmlFrame}
+            title="Email HTML content"
+            sandbox=""
+            srcDoc={htmlBody}
+          />
+        ) : (
+          <div className={styles.body}>
+            {renderThreadedBody(email.text || '(no plain text body)')}
+          </div>
+        )}
+      </div>
+      <div className={styles.editorDock}>
+        <div className={styles.editorToolbar}>
+          <button
+            type="button"
+            className={`${styles.toolbarButton} ${editor?.isActive('bold') ? styles.toolbarButtonActive : ''}`}
+            onClick={() => editor?.chain().focus().toggleBold().run()}
+            disabled={!editor}
+          >
+            Bold
+          </button>
+          <button
+            type="button"
+            className={`${styles.toolbarButton} ${editor?.isActive('italic') ? styles.toolbarButtonActive : ''}`}
+            onClick={() => editor?.chain().focus().toggleItalic().run()}
+            disabled={!editor}
+          >
+            Italic
+          </button>
+          <button
+            type="button"
+            className={`${styles.toolbarButton} ${editor?.isActive('strike') ? styles.toolbarButtonActive : ''}`}
+            onClick={() => editor?.chain().focus().toggleStrike().run()}
+            disabled={!editor}
+          >
+            Strike
+          </button>
+          <button
+            type="button"
+            className={`${styles.toolbarButton} ${editor?.isActive('bulletList') ? styles.toolbarButtonActive : ''}`}
+            onClick={() => editor?.chain().focus().toggleBulletList().run()}
+            disabled={!editor}
+          >
+            Bullet List
+          </button>
+          <button
+            type="button"
+            className={`${styles.toolbarButton} ${editor?.isActive('orderedList') ? styles.toolbarButtonActive : ''}`}
+            onClick={() => editor?.chain().focus().toggleOrderedList().run()}
+            disabled={!editor}
+          >
+            Numbered List
+          </button>
         </div>
-      )}
+        <div
+          className={styles.editorContent}
+          onMouseDown={(event) => {
+            event.preventDefault();
+            editor?.chain().focus().run();
+          }}
+        >
+          <EditorContent editor={editor} />
+        </div>
+      </div>
     </article>
   );
 }
