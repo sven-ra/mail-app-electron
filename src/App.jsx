@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import AppHeader from './components/AppHeader.jsx';
 import LoginForm from './components/LoginForm.jsx';
 import InboxPanel from './components/InboxPanel.jsx';
@@ -10,6 +10,7 @@ const EMPTY_CONFIG = { host: '', username: '', password: '' };
 const LAST_SELECTED_EMAIL_UID_PREFIX = 'lastSelectedEmailUid:';
 const LAST_SELECTED_MAILBOX_ID_KEY = 'lastSelectedMailboxId';
 const LAST_SELECTED_FOLDER_KEY = 'lastSelectedFolder';
+const INBOX_WIDTH_STORAGE_KEY = 'inboxPanelWidth';
 const FOLDERS = [
   { key: 'inbox', label: 'INBOX' },
   { key: 'drafts', label: 'drafts' },
@@ -54,6 +55,11 @@ function groupEmailsByThread(emails) {
 }
 
 function App() {
+  const FOLDERS_WIDTH = 220;
+  const RESIZER_WIDTH = 12;
+  const MAIN_LAYOUT_GAP = 16;
+  const MIN_INBOX_WIDTH = 240;
+  const MIN_CONTENT_WIDTH = 320;
   const [config, setConfig] = useState(EMPTY_CONFIG);
   const [mailboxes, setMailboxes] = useState([]);
   const [selectedMailboxId, setSelectedMailboxId] = useState(null);
@@ -65,8 +71,33 @@ function App() {
   const [selectedFolder, setSelectedFolder] = useState(FOLDERS[0].key);
   const [currentPage, setCurrentPage] = useState('inbox');
   const [selectedSettingsMailboxId, setSelectedSettingsMailboxId] = useState(null);
+  const [inboxWidth, setInboxWidth] = useState(() => {
+    const value = Number(localStorage.getItem(INBOX_WIDTH_STORAGE_KEY));
+    if (Number.isFinite(value) && value > 0) {
+      return value;
+    }
+    return 420;
+  });
+  const [isResizingInbox, setIsResizingInbox] = useState(false);
+  const resizeCleanupRef = useRef(null);
+  const resizeStartXRef = useRef(0);
+  const resizeStartWidthRef = useRef(0);
+  const resizeMaxWidthRef = useRef(0);
   const threadGroups = useMemo(() => groupEmailsByThread(emails), [emails]);
   const validFolderKeys = useMemo(() => new Set(FOLDERS.map((folder) => folder.key)), []);
+
+  useEffect(
+    () => () => {
+      if (resizeCleanupRef.current) {
+        resizeCleanupRef.current();
+      }
+    },
+    []
+  );
+
+  useEffect(() => {
+    localStorage.setItem(INBOX_WIDTH_STORAGE_KEY, String(inboxWidth));
+  }, [inboxWidth]);
 
   useEffect(() => {
     async function loadConfigs() {
@@ -310,6 +341,47 @@ function App() {
     handleSelectSettingsMailbox(mailbox);
   }
 
+  function handleStartInboxResize(event) {
+    event.preventDefault();
+    const handle = event.currentTarget;
+    const layout = handle.closest('main');
+    if (!layout) return;
+
+    const maxInboxWidth = Math.max(
+      MIN_INBOX_WIDTH,
+      layout.clientWidth -
+        FOLDERS_WIDTH -
+        RESIZER_WIDTH -
+        MIN_CONTENT_WIDTH -
+        MAIN_LAYOUT_GAP * 3
+    );
+    resizeStartXRef.current = event.clientX;
+    resizeStartWidthRef.current = inboxWidth;
+    resizeMaxWidthRef.current = maxInboxWidth;
+    setIsResizingInbox(true);
+
+    function handlePointerMove(moveEvent) {
+      const deltaX = moveEvent.clientX - resizeStartXRef.current;
+      const nextWidth = Math.min(
+        resizeMaxWidthRef.current,
+        Math.max(MIN_INBOX_WIDTH, resizeStartWidthRef.current + deltaX)
+      );
+      setInboxWidth(nextWidth);
+    }
+
+    function handlePointerUp() {
+      setIsResizingInbox(false);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      resizeCleanupRef.current = null;
+    }
+
+    handle.setPointerCapture(event.pointerId);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    resizeCleanupRef.current = handlePointerUp;
+  }
+
   return (
     <div className={styles.app}>
       <AppHeader
@@ -331,7 +403,12 @@ function App() {
       <div className={styles.status}>{status}</div>
 
       {loggedIn && currentPage === 'inbox' && (
-        <main className={styles.mainLayout}>
+        <main
+          className={`${styles.mainLayout} ${isResizingInbox ? styles.mainLayoutResizing : ''}`}
+          style={{
+            gridTemplateColumns: `${FOLDERS_WIDTH}px ${inboxWidth}px ${RESIZER_WIDTH}px minmax(0, 1fr)`,
+          }}
+        >
           <section className={styles.foldersSection}>
             <h2>Folders</h2>
             {mailboxes.map((mailbox) => (
@@ -364,6 +441,13 @@ function App() {
             threadGroups={threadGroups}
             selectedEmailUid={selectedEmailUid}
             onSelectEmail={handleSelectEmail}
+          />
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize list column"
+            className={styles.columnResizer}
+            onPointerDown={handleStartInboxResize}
           />
           <section className={styles.contentSection}>
             <h2>Content</h2>

@@ -82,6 +82,10 @@
 }
 
 .rowSubject {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 13px;
   margin-bottom: 4px;
 }
