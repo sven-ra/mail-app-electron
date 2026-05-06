@@ -36,6 +36,13 @@ function InboxPanel({ title, threadGroups, selectedEmailUid, onSelectEmail }) {
 
   function renderEmailRow(email) {
     const previewLines = email.previewLines || [];
+    const previewText = previewLines
+      .filter((line) => {
+        if (!line) return false;
+        const trimmedLine = line.trim();
+        return !trimmedLine.startsWith('>') && !trimmedLine.startsWith('&gt;');
+      })
+      .join(' ');
     const isActive = selectedEmailUid && String(email.uid) === String(selectedEmailUid);
 
     return (
@@ -47,10 +54,7 @@ function InboxPanel({ title, threadGroups, selectedEmailUid, onSelectEmail }) {
         <div className={styles.rowDate}>{formatRowDate(email.dateRaw || email.date)}</div>
         <div className={styles.rowSender}>{email.from || ''}</div>
         <div className={styles.rowSubject}>{email.subject}</div>
-        <div className={styles.rowPreview}>
-          <div>{previewLines[0] || ''}</div>
-          <div>{previewLines[1] || ''}</div>
-        </div>
+        <div className={styles.rowPreview}>{previewText}</div>
       </button>
     );
   }

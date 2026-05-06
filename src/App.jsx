@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import AppHeader from './components/AppHeader.jsx';
 import LoginForm from './components/LoginForm.jsx';
 import InboxPanel from './components/InboxPanel.jsx';
 import EmailContent from './components/EmailContent.jsx';
@@ -94,6 +93,14 @@ function App() {
     },
     []
   );
+
+  useEffect(() => {
+    if (!window.electronAPI?.onOpenSettings) return undefined;
+    const unsubscribe = window.electronAPI.onOpenSettings(() => {
+      handleOpenSettings();
+    });
+    return unsubscribe;
+  }, [selectedMailboxId, mailboxes]);
 
   useEffect(() => {
     localStorage.setItem(INBOX_WIDTH_STORAGE_KEY, String(inboxWidth));
@@ -384,14 +391,6 @@ function App() {
 
   return (
     <div className={styles.app}>
-      <AppHeader
-        loggedIn={loggedIn}
-        currentPage={currentPage}
-        onOpenInbox={() => handleOpenInbox()}
-        onOpenSettings={handleOpenSettings}
-        onLogout={handleLogout}
-      />
-
       {!loggedIn && (
         <LoginForm
           config={config}
@@ -459,6 +458,9 @@ function App() {
       {loggedIn && currentPage === 'settings' && (
         <main className={styles.settingsLayout}>
           <section className={styles.settingsSection}>
+            <button type="button" className={styles.folderButton} onClick={() => handleOpenInbox()}>
+              Close settings
+            </button>
             <h2>Add mailbox</h2>
             <LoginForm
               config={config}
@@ -482,13 +484,6 @@ function App() {
                     onClick={() => handleSelectSettingsMailbox(mailbox)}
                   >
                     {mailbox.username}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleOpenInbox(mailbox.id, FOLDERS[0].key)}
-                    className={styles.folderButton}
-                  >
-                    INBOX
                   </button>
                 </li>
               ))}

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage, Menu } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const Imap = require('imap');
@@ -17,6 +17,46 @@ const PASSWORD_SCHEME_FALLBACK = 'fallback:v1:';
 const PASSWORD_FALLBACK_SALT = 'mail-electron-password-salt';
 
 let mainWindow;
+
+function openSettingsView() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('open-settings');
+}
+
+function buildAppMenu() {
+  const template = [
+    ...(process.platform === 'darwin'
+      ? [
+          {
+            label: app.name,
+            submenu: [
+              {
+                label: 'Settings...',
+                accelerator: 'Command+,',
+                click: openSettingsView,
+              },
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+        ]
+      : []),
+    {
+      role: 'editMenu',
+    },
+    {
+      role: 'windowMenu',
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
 
 function getFallbackKey() {
   return crypto.scryptSync(app.getPath('userData'), PASSWORD_FALLBACK_SALT, 32);
@@ -128,6 +168,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   migrateLegacyPlainTextConfigs();
+  buildAppMenu();
   createWindow();
 });
 

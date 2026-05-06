@@ -1,7 +1,7 @@
 import React from 'react';
 import styles from './AppHeader.module.css';
 
-function AppHeader({ loggedIn, currentPage, onOpenInbox, onOpenSettings, onLogout }) {
+function AppHeader({ loggedIn, currentPage, onOpenInbox, onLogout }) {
   return (
     <header className={styles.header}>
       {loggedIn && (
@@ -12,13 +12,6 @@ function AppHeader({ loggedIn, currentPage, onOpenInbox, onOpenSettings, onLogou
             onClick={onOpenInbox}
           >
             Inbox
-          </button>
-          <button
-            type="button"
-            className={`${styles.navButton} ${currentPage === 'settings' ? styles.navButtonActive : ''}`}
-            onClick={onOpenSettings}
-          >
-            Settings
           </button>
           <button type="button" className={styles.logoutButton} onClick={onLogout}>
             Logout

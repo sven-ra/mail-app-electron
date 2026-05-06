@@ -11,4 +11,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('fetch-folder-emails', config, folderKey, mailboxMap),
   fetchFolderEmail: (config, folderKey, uid, mailboxMap) =>
     ipcRenderer.invoke('fetch-folder-email', config, folderKey, uid, mailboxMap),
+  onOpenSettings: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on('open-settings', handler);
+    return () => {
+      ipcRenderer.removeListener('open-settings', handler);
+    };
+  },
 });
