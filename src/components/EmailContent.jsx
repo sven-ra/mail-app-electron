@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
+import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import styles from './EmailContent.module.css';
 
 function EmailContent({ email }) {
@@ -137,13 +138,65 @@ function renderThreadedBody(text, email) {
           <div key={segment.id || index} className={rowClassName}>
             <div className={bubbleClassName}>
               {hasAnySenderHints && segment.senderHint ? (
-                <div className={styles.messageSender}>{segment.senderHint}</div>
+                <SenderDropdown label={segment.senderHint} />
               ) : null}
               <div className={styles.messageText}>{segment.text}</div>
             </div>
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function SenderDropdown({ label }) {
+  const address = getAddressForActions(label);
+  const displayName = getSenderDisplayName(label);
+
+  async function handleCopyAddress() {
+    if (!address) {
+      return;
+    }
+
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(address);
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = address;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'absolute';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  }
+
+  function handleSendMail() {
+    // Placeholder action until send-email flow is implemented.
+  }
+
+  return (
+    <div className={styles.messageSender}>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger asChild>
+          <button type="button" className={styles.messageSenderButton}>
+            {displayName}
+          </button>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content className={styles.senderMenuContent} sideOffset={4} align="start">
+            <DropdownMenu.Item className={styles.senderMenuItem} onSelect={handleCopyAddress}>
+              Copy address
+            </DropdownMenu.Item>
+            <DropdownMenu.Item className={styles.senderMenuItem} onSelect={handleSendMail}>
+              Send mail
+            </DropdownMenu.Item>
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
     </div>
   );
 }
@@ -380,6 +433,36 @@ function formatHeaderValue(text) {
   const textarea = document.createElement('textarea');
   textarea.innerHTML = value;
   return textarea.value;
+}
+
+function getAddressForActions(value) {
+  const stringValue = String(value || '').trim();
+  const match = stringValue.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  if (match) {
+    return match[0];
+  }
+
+  return stringValue;
+}
+
+function getSenderDisplayName(value) {
+  const stringValue = String(value || '').trim();
+  if (!stringValue) {
+    return '';
+  }
+
+  const bracketMatch = stringValue.match(/^(.*?)\s*<[^>]+>\s*$/);
+  if (bracketMatch && bracketMatch[1]) {
+    return bracketMatch[1].trim().replace(/^["']|["']$/g, '');
+  }
+
+  const addressMatch = stringValue.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  if (addressMatch && addressMatch[0].toLowerCase() === stringValue.toLowerCase()) {
+    const [localPart] = stringValue.split('@');
+    return localPart;
+  }
+
+  return stringValue.replace(/^["']|["']$/g, '');
 }
 
 function getHtmlBody(html) {
