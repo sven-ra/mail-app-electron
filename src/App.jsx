@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useEvent } from 'react-use';
 import LoginForm from './components/LoginForm.jsx';
 import InboxPanel from './components/InboxPanel.jsx';
 import EmailContent from './components/EmailContent.jsx';
@@ -10,6 +11,7 @@ const LAST_SELECTED_EMAIL_UID_PREFIX = 'lastSelectedEmailUid:';
 const LAST_SELECTED_MAILBOX_ID_KEY = 'lastSelectedMailboxId';
 const LAST_SELECTED_FOLDER_KEY = 'lastSelectedFolder';
 const INBOX_WIDTH_STORAGE_KEY = 'inboxPanelWidth';
+const THEME_STORAGE_KEY = 'themeMode';
 const FOLDERS = [
   { key: 'inbox', label: 'INBOX' },
   { key: 'drafts', label: 'drafts' },
@@ -78,6 +80,13 @@ function App() {
     return 420;
   });
   const [isResizingInbox, setIsResizingInbox] = useState(false);
+  const [themeMode, setThemeMode] = useState(() => {
+    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    if (storedTheme === 'dark' || storedTheme === 'light') {
+      return storedTheme;
+    }
+    return 'light';
+  });
   const resizeCleanupRef = useRef(null);
   const resizeStartXRef = useRef(0);
   const resizeStartWidthRef = useRef(0);
@@ -105,6 +114,21 @@ function App() {
   useEffect(() => {
     localStorage.setItem(INBOX_WIDTH_STORAGE_KEY, String(inboxWidth));
   }, [inboxWidth]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', themeMode);
+    localStorage.setItem(THEME_STORAGE_KEY, themeMode);
+  }, [themeMode]);
+
+  function handleToggleThemeMode() {
+    setThemeMode((currentThemeMode) => (currentThemeMode === 'dark' ? 'light' : 'dark'));
+  }
+
+  useEvent('keydown', (event) => {
+    if (!event.shiftKey) return;
+    if (event.key !== 'm' && event.key !== 'M') return;
+    handleToggleThemeMode();
+  });
 
   useEffect(() => {
     async function loadConfigs() {
@@ -437,7 +461,6 @@ function App() {
           }}
         >
           <section className={styles.foldersSection}>
-            <h2>Folders</h2>
             {mailboxes.map((mailbox) => (
               <div key={mailbox.id} className={styles.mailboxGroup}>
                 <h3 className={styles.mailboxTitle}>{mailbox.username}</h3>

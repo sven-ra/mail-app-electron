@@ -1,6 +1,49 @@
 @import './reset.css';
 @import '@fontsource/ibm-plex-mono';
 
+:root {
+  --color-bg: #fff;
+  --color-fg: #000;
+}
+
 body {
   font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--color-fg);
+  background: var(--color-bg);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #000;
+    --color-fg: #fff;
+  }
+
+  *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
+    color: var(--color-fg) !important;
+    background: var(--color-bg) !important;
+    border-color: var(--color-fg) !important;
+  }
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #000;
+  --color-fg: #fff;
+}
+
+:root[data-theme='dark'] *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
+  color: var(--color-fg) !important;
+  background: var(--color-bg) !important;
+  border-color: var(--color-fg) !important;
+}
+
+:root[data-theme='light'] {
+  --color-bg: #fff;
+  --color-fg: #000;
+}
+
+:root[data-theme='light'] *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
+  color: var(--color-fg) !important;
+  background: var(--color-bg) !important;
+  border-color: var(--color-fg) !important;
 }
