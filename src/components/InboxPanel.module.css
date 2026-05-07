@@ -61,10 +61,12 @@
   overflow-wrap: anywhere;
   position: relative;
   padding-right: 72px;
+  opacity: var(--text-opacity-step-3);
+  transition: opacity 120ms ease;
 }
 
 .itemButtonActive {
-  background-color: var(--color-bg);
+  opacity: var(--text-opacity-step-1);
 }
 
 .rowDate {
