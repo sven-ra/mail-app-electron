@@ -12,8 +12,7 @@
 }
 
 .body {
-  display: grid;
-  gap: 2px;
+  display: block;
 }
 
 .messageArea {
@@ -35,23 +34,57 @@
   pointer-events: none;
 }
 
-.bodyLine {
+.threadList {
+  display: grid;
+  gap: 10px;
+}
+
+.messageRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.messageRowSelf {
+  justify-content: flex-end;
+}
+
+.messageRowOther {
+  justify-content: flex-start;
+}
+
+.messageRowUnknown {
+  justify-content: flex-start;
+}
+
+.messageBubble {
+  width: min(92%, 840px);
+  border: 1px solid var(--color-fg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--color-bg);
+}
+
+.messageBubbleSelf {
+  width: min(86%, 700px);
+}
+
+.messageBubbleOther {
+  width: min(92%, 840px);
+}
+
+.messageBubbleUnknown {
+  width: min(92%, 840px);
+}
+
+.messageSender {
+  margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+
+.messageText {
   min-height: 1.3em;
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-.bodyLineQuoted {
-  padding-left: calc(var(--quote-depth) * 12px + 8px);
-  background-image: repeating-linear-gradient(to right,
-      transparent 0,
-      transparent 8px,
-      rgba(0, 0, 0, 0.75) 8px,
-      rgba(0, 0, 0, 0.75) 9px,
-      transparent 9px,
-      transparent 12px);
-  background-size: calc(var(--quote-depth) * 12px) 100%;
-  background-repeat: no-repeat;
 }
 
 .editorDock {
