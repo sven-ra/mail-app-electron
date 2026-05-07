@@ -1,0 +1,475 @@
+[fetch-folder-email] Raw MIME for UID 8983 (13228 bytes)
+Delivered-To: mail@svenraju.net
+Return-Path: <joosep@ragulka.com>
+Authentication-Results: zonemx.eu;
+    spf=none smtp.mailfrom=ragulka.com;
+    spf=none (zonemx.eu: ragulka.com does not designate permitted sender hosts) smtp.mailfrom=joosep@ragulka.com smtp.helo=mail-out9.elkdata.ee;
+    dkim=invalid (no key for signature) header.i=@ragulka.com header.d=ragulka.com header.s=mail-out;
+    dkim=neutral (no key) header.i=@ragulka.com header.s=mail-out header.a=rsa-sha256 header.b=HqjMJi1W;
+    arc=pass (i=1 spf=none);
+    dmarc=none header.from=ragulka.com;
+    dkim=neutral (no key) header.i=@ragulka.com header.s=mail-out header.a=rsa-sha256 header.b=HqjMJi1W
+Received-SPF: none (zonemx.eu: ragulka.com does not designate permitted sender hosts) client-ip=185.7.252.124;
+Received-SPF: None
+    (domain of ragulka.com does not designate 185.7.252.124 as permitted sender)
+    receiver=zonemx.eu;
+    identity=mailfrom; client-ip=185.7.252.124 helo=mail-out9.elkdata.ee;
+    envelope-from=<joosep@ragulka.com>
+Received-SPF: None
+    (domain of mail-out9.elkdata.ee does not designate 185.7.252.124 as permitted sender)
+    receiver=zonemx.eu;
+    identity=helo; client-ip=185.7.252.124 helo=mail-out9.elkdata.ee;
+    envelope-from=<joosep@ragulka.com>
+Received: from mail-out9.elkdata.ee (mail-out9.elkdata.ee [185.7.252.124])
+    by zonemx.eu (Haraka/3.1.3) with ESMTPS id A03ADBF2-6613-4DF9-B569-0BEEFBADA45E.1
+    envelope-from <joosep@ragulka.com>
+    tls TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256;
+    Fri, 24 Apr 2026 10:25:23 +0000
+Received: from mail-relay4.elkdata.ee (mail-relay4.elkdata.ee [185.7.252.123])
+    by mail-out9.elkdata.ee (Postfix) with ESMTP id F3432606C
+    for <mail@svenraju.net>; Fri, 24 Apr 2026 13:25:22 +0300 (EEST)
+Received: from mail-relay4.elkdata.ee (mail-relay4.elkdata.ee [185.7.252.123])
+    by mail-relay4.elkdata.ee (Postfix) with ESMTP id F211A16A1BC
+    for <mail@svenraju.net>; Fri, 24 Apr 2026 13:25:22 +0300 (EEST)
+X-Virus-Scanned: amavisd-new at elkdata.ee
+Received: from mail-relay4.elkdata.ee ([185.7.252.123])
+    by mail-relay4.elkdata.ee (mail-relay4.elkdata.ee [185.7.252.123]) (amavisd-new, port 10024)
+    with ESMTP id bq7wIc-iouEw for <mail@svenraju.net>;
+    Fri, 24 Apr 2026 13:25:21 +0300 (EEST)
+Received: from mail.elkdata.ee (unknown [185.7.252.121])
+    by mail-relay4.elkdata.ee (Postfix) with ESMTP id 2B42516A1A9
+    for <mail@svenraju.net>; Fri, 24 Apr 2026 13:25:21 +0300 (EEST)
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/simple; d=ragulka.com;
+    s=mail-out; t=1777026321;
+    bh=zFwwrEJNBmCcTT0VoTFGtVU7UxYUIUj4aU9/ILiBUdE=;
+    h=References:In-Reply-To:From:Date:Subject:To:Cc:From;
+    b=HqjMJi1W/rT20jIq6MygWGv1+Vk0k074Osf9URK1/dgkdK8KMsk/RT+unS1OV5qhn
+     9e7hBdOeJVzhcqlyEY1YO1xOtAAfj96de+DkFMF1D1b+vZdbm0FcVBgrAEPhvLlbgk
+     mbN/77HeNo7K8J9Cw19WL0stt05QH6/MvrJWrECc=
+Received: from mail-qk1-f175.google.com (mail-qk1-f175.google.com [209.85.222.175])
+    (using TLSv1.3 with cipher TLS_AES_128_GCM_SHA256 (128/128 bits)
+     key-exchange X25519 server-signature RSA-PSS (4096 bits) server-digest SHA256)
+    (No client certificate requested)
+    (Authenticated sender: joosep@ragulka.com)
+    by mail.elkdata.ee (Postfix) with ESMTPSA id 29D574E976
+    for <mail@svenraju.net>; Fri, 24 Apr 2026 13:25:19 +0300 (EEST)
+Received: by mail-qk1-f175.google.com with SMTP id af79cd13be357-8d68f702851so877669885a.0
+        for <mail@svenraju.net>; Fri, 24 Apr 2026 03:25:19 -0700 (PDT)
+X-Gm-Message-State: AOJu0YzqhRZPF01va8+ul3CoqFrCF1r2oLv+4J+Gh+jXe+LpnJvBYE0O
+    ZsHXWTxI5B0ZIod9Rrqb9VTKfmrBy3ezv4Zcomi4TqnAVEdL2lZxvox2uq1fykEY/HobTU7c2g7
+    Gk4jnlUecxZ7Qx7+QqJV/MbiWwqh/nw0=
+X-Received: by 2002:a05:6214:cc1:b0:8ac:a9f1:6cf4 with SMTP id
+ 6a1803df08f44-8b02810ee12mr456290586d6.37.1777026318052; Fri, 24 Apr 2026
+ 03:25:18 -0700 (PDT)
+MIME-Version: 1.0
+References: <48D01848-489C-4E65-9343-1D9947B611E1@svenraju.net>
+ <CAHQYR_oVhrWzDkfp27AVJrHX+scFq+OdCE73QU9zsTsM9dkroQ@mail.gmail.com>
+ <CAHQYR_rDMV0P8SWYC26UNpA54g+rTsL9tWLpt-Rc=g8tY2qENw@mail.gmail.com>
+ <7E3C8CA4-9056-4370-85A7-F0154B020BA2@svenraju.net> <CAHQYR_qx_H7o5zEM7zh-Dd-SDt_zXTWVQY-z60qwj2o+ta+KBQ@mail.gmail.com>
+ <B25497C3-6BED-46A2-9C67-E42C9B863CB2@svenraju.net>
+In-Reply-To: <B25497C3-6BED-46A2-9C67-E42C9B863CB2@svenraju.net>
+From: Joosep Maripuu <joosep@ragulka.com>
+Date: Fri, 24 Apr 2026 13:25:07 +0300
+X-Gmail-Original-Message-ID: <CAHQYR_pbvJvJAyNZ+4_OUkqZuuzJxO40mUfN7dtRSnLDT8UhLA@mail.gmail.com>
+X-Gm-Features: AQROBzABH07P2lE6RhNmWDpYN_8eKSy3S9BXVXA8QrpiDD4J6tiMYcVVw-_hOpo
+Message-ID: <CAHQYR_pbvJvJAyNZ+4_OUkqZuuzJxO40mUfN7dtRSnLDT8UhLA@mail.gmail.com>
+Subject: Re: tere
+To: Sven Raju <mail@svenraju.net>
+Cc: Joosep Maripuu <joosep@ragulka.com>
+Content-Type: multipart/alternative; boundary="00000000000071b3490650322ea2"
+ARC-Seal: i=1; a=rsa-sha256; d=zone.eu; s=arc2023; cv=none; t=1777026323;
+    b=WJ+TnVe4on2pdot/IuX6pog+fyb2RlVWaiPfEASEyQIPGJyDDnv/78pg2ChdMiBWFnwy9G
+    pr2Vqsf2DaaUpRBH8Ju4kCF9d6YS2Lp6WT96wLDvkXTxgxIUUtmFcEQpoG21pcHbvcxq95
+    IsOcOAw49IvuP8YTswT3MWWI01W76WMOeVGyXhijSXNejqNi90LBhgcyVkPqgMYQRo9V8G
+    KfFEegdLjrnOwwZKruCEvV1OqT0ANmVkWaDFGxR/4cBI7qTtwdBPJQ06yahJRU7HxcJ2BL
+    yRMWTpqOJ9R13CeH0BR0MtHIUeJCUzx7butl9Xi71wu8OjkdP2TZIDdglNOXVA==
+ARC-Authentication-Results: i=1;
+    zonemx.eu;
+    spf=none smtp.mailfrom=ragulka.com;
+    spf=none (zonemx.eu: ragulka.com does not designate permitted sender hosts) smtp.mailfrom=joosep@ragulka.com smtp.helo=mail-out9.elkdata.ee
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=zone.eu;
+    s=arc2023; t=1777026323;
+    h=from:from:reply-to:subject:subject:date:date:message-id:message-id:
+     to:to:cc:cc:mime-version:mime-version:content-type:content-type:
+     in-reply-to:in-reply-to:references:references:dkim-signature;
+    bh=o4u+wTPksn5a+zIp6pRm/fLWEUGz9fRCBoHTMle6Yms=;
+    b=h3/C4HK2fawxoBVhYIo/qJbkUDdphqUx3MCzbdNflmnmjNQaKZvn+9mSPF+tpT3H7wlNny
+    dEBkicfcuG1RWq3kfk/UymRvvmL0ZmwIT3/rbjS2DHNi9uYcenhToPlav6mqLUXsDxsMsX
+    zN10E92H/JziEJ8emkE0dRhLuanggYSV13VjDCPz+zz2k1nBgVz2wMkJlCAZv1uDHdkCcx
+    kQlVhAc1kLBzXnStIZr8u0Q/pT9fKz0weRnAhRRbO95//VtG0IsgPHgnm/GBKdF0dQhd6e
+    KpnLYKl1op5wgfi0l+z1/EzezmdWzv3cmXrUI88ufy4Hc6RMyswB0uJt2jDfZQ==
+X-Rspamd-Bar: ++++
+X-Rspamd-Report: R_SPF_NA(3) BAYES_HAM(-3) MX_GOOD(-0.01) DMARC_NA(2) MIME_GOOD(-0.1) URI_COUNT_ODD(1) NEURAL_SPAM(1.999999)
+X-Rspamd-Score: 4.889999
+
+--00000000000071b3490650322ea2
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+This is the mail system at host mail-out9.elkdata.ee.
+
+I'm sorry to have to inform you that your message could not
+be delivered to one or more recipients. It's attached below.
+
+For further assistance, please send mail to postmaster.
+
+If you do so, please include this problem report. You can
+delete your own text from the attached returned message.
+
+                   The mail system
+
+<joosepmaripuu@gmail.com>: host gmail-smtp-in.l.google.com[142.251.127.27]
+    said: 550-5.7.26 Your email has been blocked because the sender is
+    unauthenticated. 550-5.7.26 Gmail requires all senders to authenticate
+with
+    either SPF or DKIM. 550-5.7.26  550-5.7.26  Authentication results:
+    550-5.7.26  DKIM =3D did not pass 550-5.7.26  SPF [ragulka.com] with ip=
+:
+    [185.7.252.124] =3D did not pass 550-5.7.26  550-5.7.26  For instructio=
+ns
+on
+    setting up authentication, go to 550 5.7.26
+    https://support.google.com/mail/answer/81126#authentication
+    ffacd0b85a97d-4412150a09dsi12258835f8f.467 - gsmtp (in reply to end of
+DATA
+    command)
+
+Kontakt Sven Raju (<mail@svenraju.net>) kirjutas kuup=C3=A4eval K, 31. m=C3=
+=A4rts
+2021 kell 13:30:
+
+> T=C3=B6=C3=B6tab h=C3=A4sti!
+>
+>
+> On 31. Mar 2021, at 12:37, Joosep Maripuu <joosep@ragulka.com> wrote:
+>
+> Ma tegelt tahtsin lihtsalt kinnitust, kas mu gmaili seadistused toimivad
+> normaalselt ja kas see ragulka meilikonto alt saatmine toimis korralikult
+> ja j=C3=A4relikult siis k=C3=B5ik timm. okidoki
+>
+> Kontakt Sven Raju (<mail@svenraju.net>) kirjutas kuup=C3=A4eval K, 31. m=
+=C3=A4rts
+> 2021 kell 12:25:
+>
+>> Yoyo! Kirjutas. Vastan talle t=C3=A4na.
+>>
+>> Annan teada, kuidas laabub.
+>>
+>> Thanks!
+>>
+>> On 31. Mar 2021, at 11:43, Joosep Maripuu <joosep@ragulka.com> wrote:
+>>
+>> Unesco inimene ei kirjutanud v=C3=A4
+>>
+>> Kontakt Joosep Maripuu (<joosep@ragulka.com>) kirjutas kuup=C3=A4eval K,=
+ 3.
+>> veebruar 2021 kell 20:29:
+>>
+>>> Oi tere tere. K=C3=B5ik toimib juhhuu
+>>>
+>>> Kontakt Sven Raju (<mail@svenraju.net>) kirjutas kuup=C3=A4eval K, 3.
+>>> veebruar 2021 kell 20:17:
+>>>
+>>>> TERE!
+>>>>
+>>>
+>>
+>
+
+--00000000000071b3490650322ea2
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr">This is the mail system at host=C2=A0<a href=3D"http://mai=
+l-out9.elkdata.ee/" rel=3D"noreferrer" target=3D"_blank">mail-out9.elkdata.=
+ee</a>.<br><br>I&#39;m sorry to have to inform you that your message could =
+not<br>be delivered to one or more recipients. It&#39;s attached below.<br>=
+<br>For further assistance, please send mail to postmaster.<br><br>If you d=
+o so, please include this problem report. You can<br>delete your own text f=
+rom the attached returned message.<br><br>=C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=
+=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0 =C2=A0The mail system<br><br>&lt;<a href=3D=
+"mailto:joosepmaripuu@gmail.com" target=3D"_blank">joosepmaripuu@gmail.com<=
+/a>&gt;: host=C2=A0<a href=3D"http://gmail-smtp-in.l.google.com/" rel=3D"no=
+referrer" target=3D"_blank">gmail-smtp-in.l.google.com</a>[142.251.127.27]<=
+br>=C2=A0 =C2=A0 said: 550-5.7.26 Your email has been blocked because the s=
+ender is<br>=C2=A0 =C2=A0 unauthenticated. 550-5.7.26 Gmail requires all se=
+nders to authenticate with<br>=C2=A0 =C2=A0 either SPF or DKIM. 550-5.7.26=
+=C2=A0 550-5.7.26=C2=A0 Authentication results:<br>=C2=A0 =C2=A0 550-5.7.26=
+=C2=A0 DKIM =3D did not pass 550-5.7.26=C2=A0 SPF [<a href=3D"http://ragulk=
+a.com/" rel=3D"noreferrer" target=3D"_blank">ragulka.com</a>] with ip:<br>=
+=C2=A0 =C2=A0 [185.7.252.124] =3D did not pass 550-5.7.26=C2=A0 550-5.7.26=
+=C2=A0 For instructions on<br>=C2=A0 =C2=A0 setting up authentication, go t=
+o 550 5.7.26<br>=C2=A0 =C2=A0=C2=A0<a href=3D"https://support.google.com/ma=
+il/answer/81126#authentication" rel=3D"noreferrer" target=3D"_blank">https:=
+//support.google.com/mail/answer/81126#authentication</a><br>=C2=A0 =C2=A0 =
+ffacd0b85a97d-4412150a09dsi12258835f8f.467 - gsmtp (in reply to end of DATA=
+<br>=C2=A0 =C2=A0 command)</div><br><div class=3D"gmail_quote gmail_quote_c=
+ontainer"><div dir=3D"ltr" class=3D"gmail_attr">Kontakt Sven Raju (&lt;<a h=
+ref=3D"mailto:mail@svenraju.net">mail@svenraju.net</a>&gt;) kirjutas kuup=
+=C3=A4eval K, 31. m=C3=A4rts 2021 kell 13:30:<br></div><blockquote class=3D=
+"gmail_quote" style=3D"margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(2=
+04,204,204);padding-left:1ex"><div style=3D"overflow-wrap: break-word;">T=
+=C3=B6=C3=B6tab h=C3=A4sti!<div><br><div><br><blockquote type=3D"cite"><div=
+>On 31. Mar 2021, at 12:37, Joosep Maripuu &lt;<a href=3D"mailto:joosep@rag=
+ulka.com" target=3D"_blank">joosep@ragulka.com</a>&gt; wrote:</div><br><div=
+><div dir=3D"ltr">Ma tegelt tahtsin lihtsalt kinnitust, kas mu gmaili seadi=
+stused toimivad normaalselt ja kas see ragulka meilikonto alt saatmine toim=
+is korralikult ja j=C3=A4relikult siis k=C3=B5ik timm. okidoki</div><br><di=
+v class=3D"gmail_quote"><div dir=3D"ltr" class=3D"gmail_attr">Kontakt Sven =
+Raju (&lt;<a href=3D"mailto:mail@svenraju.net" target=3D"_blank">mail@svenr=
+aju.net</a>&gt;) kirjutas kuup=C3=A4eval K, 31. m=C3=A4rts 2021 kell 12:25:=
+<br></div><blockquote class=3D"gmail_quote" style=3D"margin:0px 0px 0px 0.8=
+ex;border-left:1px solid rgb(204,204,204);padding-left:1ex"><div>Yoyo! Kirj=
+utas. Vastan talle t=C3=A4na.<div><br></div><div>Annan teada, kuidas laabub=
+.</div><div><br></div><div><span>Thanks!</span></div><div><div><br><blockqu=
+ote type=3D"cite"><div>On 31. Mar 2021, at 11:43, Joosep Maripuu &lt;<a hre=
+f=3D"mailto:joosep@ragulka.com" target=3D"_blank">joosep@ragulka.com</a>&gt=
+; wrote:</div><br><div><div dir=3D"ltr">Unesco inimene ei kirjutanud v=C3=
+=A4</div><br><div class=3D"gmail_quote"><div dir=3D"ltr" class=3D"gmail_att=
+r">Kontakt Joosep Maripuu (&lt;<a href=3D"mailto:joosep@ragulka.com" target=
+=3D"_blank">joosep@ragulka.com</a>&gt;) kirjutas kuup=C3=A4eval K, 3. veebr=
+uar 2021 kell 20:29:<br></div><blockquote class=3D"gmail_quote" style=3D"ma=
+rgin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:=
+1ex"><div dir=3D"ltr">Oi tere tere. K=C3=B5ik toimib juhhuu</div><br><div c=
+lass=3D"gmail_quote"><div dir=3D"ltr" class=3D"gmail_attr">Kontakt Sven Raj=
+u (&lt;<a href=3D"mailto:mail@svenraju.net" target=3D"_blank">mail@svenraju=
+.net</a>&gt;) kirjutas kuup=C3=A4eval K, 3. veebruar 2021 kell 20:17:<br></=
+div><blockquote class=3D"gmail_quote" style=3D"margin:0px 0px 0px 0.8ex;bor=
+der-left:1px solid rgb(204,204,204);padding-left:1ex">TERE!<br>
+</blockquote></div>
+</blockquote></div>
+</div></blockquote></div><br></div></div></blockquote></div>
+</div></blockquote></div><br></div></div></blockquote></div>
+
+--00000000000071b3490650322ea2--
+
+[fetch-folder-email] Raw MIME for UID 135 (11119 bytes)
+From: Sven Raju <mail@svenraju.net>
+Content-Type: multipart/alternative;
+    boundary="Apple-Mail=_0183D0CC-5F35-446D-8969-F54397E05C18"
+Mime-Version: 1.0 (Mac OS X Mail 16.0 \(3864.100.1.1.5\))
+Subject: Re: tere
+X-Universally-Unique-Identifier: 401AD978-B520-4AFE-8EAB-B9B9F2D90AFE
+Date: Tue, 28 Apr 2026 12:10:50 +0300
+References: <48D01848-489C-4E65-9343-1D9947B611E1@svenraju.net>
+ <CAHQYR_oVhrWzDkfp27AVJrHX+scFq+OdCE73QU9zsTsM9dkroQ@mail.gmail.com>
+ <CAHQYR_rDMV0P8SWYC26UNpA54g+rTsL9tWLpt-Rc=g8tY2qENw@mail.gmail.com>
+ <7E3C8CA4-9056-4370-85A7-F0154B020BA2@svenraju.net>
+ <CAHQYR_qx_H7o5zEM7zh-Dd-SDt_zXTWVQY-z60qwj2o+ta+KBQ@mail.gmail.com>
+ <B25497C3-6BED-46A2-9C67-E42C9B863CB2@svenraju.net>
+ <CAHQYR_pbvJvJAyNZ+4_OUkqZuuzJxO40mUfN7dtRSnLDT8UhLA@mail.gmail.com>
+ <4A19FCB8-97AE-4A99-A458-28757A86BBE4@svenraju.net>
+To: Joosep Maripuu <joosep@ragulka.com>
+In-Reply-To: <4A19FCB8-97AE-4A99-A458-28757A86BBE4@svenraju.net>
+Message-Id: <02D48C00-B3D5-4DE9-B881-44935FD2946F@svenraju.net>
+
+
+--Apple-Mail=_0183D0CC-5F35-446D-8969-F54397E05C18
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+    charset=utf-8
+
+Ma ei saa enam midagi aru Joosep.
+
+Domeen on Zones, Email on Veebimajutuses?
+Ja milleks see gmaili asi on =C3=BCldse? Sa vist tahtsid saada =C3=BChte =
+mailboxi asju?
+
+Sri ma lihtsalt ei m=C3=A4leta enam :D. Igal juhul, v=C3=B5iks vist =
+natukene lihtsustada k=C3=B5ike seda.
+
+Ma tegin =C3=BChe paranduse. =C3=9Cks tunni jooksul peaks rakenduma. See =
+v=C3=B5iks selle asja korda teha k=C3=BCll. Kas sa oskad praegu seda =
+errorit n=C3=B6 triggerida? Et saaks p=C3=A4rast testida.
+
+Sven
+
+> On 24. Apr 2026, at 13:27, Sven Raju <mail@svenraju.net> wrote:
+>=20
+> Tsau
+>=20
+> kle ma ei leia hetkel veebimajutusest sinu kontot.=20
+> Saad siit jagada svenraju@gmail.com kontole?=20
+>=20
+> <PastedGraphic-1.png>
+>=20
+>> On 24. Apr 2026, at 13:25, Joosep Maripuu <joosep@ragulka.com> wrote:
+>>=20
+>> This is the mail system at host mail-out9.elkdata.ee =
+<http://mail-out9.elkdata.ee/>.
+>>=20
+>> I'm sorry to have to inform you that your message could not
+>> be delivered to one or more recipients. It's attached below.
+>>=20
+>> For further assistance, please send mail to postmaster.
+>>=20
+>> If you do so, please include this problem report. You can
+>> delete your own text from the attached returned message.
+>>=20
+>>                    The mail system
+>>=20
+>> <joosepmaripuu@gmail.com <mailto:joosepmaripuu@gmail.com>>: host =
+gmail-smtp-in.l.google.com =
+<http://gmail-smtp-in.l.google.com/>[142.251.127.27]
+>>     said: 550-5.7.26 Your email has been blocked because the sender =
+is
+>>     unauthenticated. 550-5.7.26 Gmail requires all senders to =
+authenticate with
+>>     either SPF or DKIM. 550-5.7.26  550-5.7.26  Authentication =
+results:
+>>     550-5.7.26  DKIM =3D did not pass 550-5.7.26  SPF [ragulka.com =
+<http://ragulka.com/>] with ip:
+>>     [185.7.252.124] =3D did not pass 550-5.7.26  550-5.7.26  For =
+instructions on
+>>     setting up authentication, go to 550 5.7.26
+>>     https://support.google.com/mail/answer/81126#authentication
+>>     ffacd0b85a97d-4412150a09dsi12258835f8f.467 - gsmtp (in reply to =
+end of DATA
+>>     command)
+>>=20
+>> Kontakt Sven Raju (<mail@svenraju.net <mailto:mail@svenraju.net>>) =
+kirjutas kuup=C3=A4eval K, 31. m=C3=A4rts 2021 kell 13:30:
+>>> T=C3=B6=C3=B6tab h=C3=A4sti!
+>>>=20
+>>>=20
+>>>> On 31. Mar 2021, at 12:37, Joosep Maripuu <joosep@ragulka.com =
+<mailto:joosep@ragulka.com>> wrote:
+>>>>=20
+>>>> Ma tegelt tahtsin lihtsalt kinnitust, kas mu gmaili seadistused =
+toimivad normaalselt ja kas see ragulka meilikonto alt saatmine toimis =
+korralikult ja j=C3=A4relikult siis k=C3=B5ik timm. okidoki
+>>>>=20
+>>>> Kontakt Sven Raju (<mail@svenraju.net <mailto:mail@svenraju.net>>) =
+kirjutas kuup=C3=A4eval K, 31. m=C3=A4rts 2021 kell 12:25:
+>>>>> Yoyo! Kirjutas. Vastan talle t=C3=A4na.
+>>>>>=20
+>>>>> Annan teada, kuidas laabub.
+>>>>>=20
+>>>>> Thanks!
+>>>>>=20
+>>>>>> On 31. Mar 2021, at 11:43, Joosep Maripuu <joosep@ragulka.com =
+<mailto:joosep@ragulka.com>> wrote:
+>>>>>>=20
+>>>>>> Unesco inimene ei kirjutanud v=C3=A4
+>>>>>>=20
+>>>>>> Kontakt Joosep Maripuu (<joosep@ragulka.com =
+<mailto:joosep@ragulka.com>>) kirjutas kuup=C3=A4eval K, 3. veebruar =
+2021 kell 20:29:
+>>>>>>> Oi tere tere. K=C3=B5ik toimib juhhuu
+>>>>>>>=20
+>>>>>>> Kontakt Sven Raju (<mail@svenraju.net =
+<mailto:mail@svenraju.net>>) kirjutas kuup=C3=A4eval K, 3. veebruar 2021 =
+kell 20:17:
+>>>>>>>> TERE!
+>>>>>=20
+>>>=20
+>=20
+
+
+--Apple-Mail=_0183D0CC-5F35-446D-8969-F54397E05C18
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/html;
+    charset=utf-8
+
+<html aria-label=3D"message body"><head><meta http-equiv=3D"content-type" =
+content=3D"text/html; charset=3Dutf-8"></head><body =
+style=3D"overflow-wrap: break-word; -webkit-nbsp-mode: space; =
+line-break: after-white-space;">Ma ei saa enam midagi aru =
+Joosep.<div><br></div><div>Domeen on Zones, Email on =
+Veebimajutuses?</div><div>Ja milleks see gmaili asi on =C3=BCldse? Sa =
+vist tahtsid saada =C3=BChte mailboxi asju?</div><div><br></div><div>Sri =
+ma lihtsalt ei m=C3=A4leta enam :D. Igal juhul, v=C3=B5iks vist natukene =
+lihtsustada k=C3=B5ike seda.</div><div><br></div><div>Ma tegin =C3=BChe =
+paranduse. =C3=9Cks tunni jooksul peaks rakenduma. See v=C3=B5iks selle =
+asja korda teha k=C3=BCll. Kas sa oskad praegu seda errorit n=C3=B6 =
+triggerida? Et saaks p=C3=A4rast =
+testida.</div><div><br></div><div>Sven</div><div><div><br><blockquote =
+type=3D"cite"><div>On 24. Apr 2026, at 13:27, Sven Raju =
+&lt;mail@svenraju.net&gt; wrote:</div><br =
+class=3D"Apple-interchange-newline"><div><meta http-equiv=3D"content-type"=
+ content=3D"text/html; charset=3Dutf-8"><div style=3D"overflow-wrap: =
+break-word; -webkit-nbsp-mode: space; line-break: =
+after-white-space;">Tsau<div><br></div><div>kle ma ei leia hetkel =
+veebimajutusest sinu kontot.&nbsp;</div><div>Saad siit jagada =
+svenraju@gmail.com kontole?&nbsp;</div><div><br></div><div><span =
+id=3D"cid:0E708AC7-2D06-4D6B-8861-D42D2FBFB329">&lt;PastedGraphic-1.png&gt=
+;</span><br id=3D"lineBreakAtBeginningOfMessage"><div><br><blockquote =
+type=3D"cite"><div>On 24. Apr 2026, at 13:25, Joosep Maripuu =
+&lt;joosep@ragulka.com&gt; wrote:</div><br =
+class=3D"Apple-interchange-newline"><div><div dir=3D"ltr">This is the =
+mail system at host&nbsp;<a href=3D"http://mail-out9.elkdata.ee/" =
+rel=3D"noreferrer" target=3D"_blank">mail-out9.elkdata.ee</a>.<br><br>I'm =
+sorry to have to inform you that your message could not<br>be delivered =
+to one or more recipients. It's attached below.<br><br>For further =
+assistance, please send mail to postmaster.<br><br>If you do so, please =
+include this problem report. You can<br>delete your own text from the =
+attached returned message.<br><br>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; =
+&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;The mail system<br><br>&lt;<a =
+href=3D"mailto:joosepmaripuu@gmail.com" =
+target=3D"_blank">joosepmaripuu@gmail.com</a>&gt;: host&nbsp;<a =
+href=3D"http://gmail-smtp-in.l.google.com/" rel=3D"noreferrer" =
+target=3D"_blank">gmail-smtp-in.l.google.com</a>[142.251.127.27]<br>&nbsp;=
+ &nbsp; said: 550-5.7.26 Your email has been blocked because the sender =
+is<br>&nbsp; &nbsp; unauthenticated. 550-5.7.26 Gmail requires all =
+senders to authenticate with<br>&nbsp; &nbsp; either SPF or DKIM. =
+550-5.7.26&nbsp; 550-5.7.26&nbsp; Authentication results:<br>&nbsp; =
+&nbsp; 550-5.7.26&nbsp; DKIM =3D did not pass 550-5.7.26&nbsp; SPF [<a =
+href=3D"http://ragulka.com/" rel=3D"noreferrer" =
+target=3D"_blank">ragulka.com</a>] with ip:<br>&nbsp; &nbsp; =
+[185.7.252.124] =3D did not pass 550-5.7.26&nbsp; 550-5.7.26&nbsp; For =
+instructions on<br>&nbsp; &nbsp; setting up authentication, go to 550 =
+5.7.26<br>&nbsp; &nbsp;&nbsp;<a =
+href=3D"https://support.google.com/mail/answer/81126#authentication" =
+rel=3D"noreferrer" =
+target=3D"_blank">https://support.google.com/mail/answer/81126#authenticat=
+ion</a><br>&nbsp; &nbsp; ffacd0b85a97d-4412150a09dsi12258835f8f.467 - =
+gsmtp (in reply to end of DATA<br>&nbsp; &nbsp; command)</div><br><div =
+class=3D"gmail_quote gmail_quote_container"><div dir=3D"ltr" =
+class=3D"gmail_attr">Kontakt Sven Raju (&lt;<a =
+href=3D"mailto:mail@svenraju.net">mail@svenraju.net</a>&gt;) kirjutas =
+kuup=C3=A4eval K, 31. m=C3=A4rts 2021 kell 13:30:<br></div><blockquote =
+class=3D"gmail_quote" style=3D"margin:0px 0px 0px 0.8ex;border-left:1px =
+solid rgb(204,204,204);padding-left:1ex"><div style=3D"overflow-wrap: =
+break-word;">T=C3=B6=C3=B6tab h=C3=A4sti!<div><br><div><br><blockquote =
+type=3D"cite"><div>On 31. Mar 2021, at 12:37, Joosep Maripuu &lt;<a =
+href=3D"mailto:joosep@ragulka.com" =
+target=3D"_blank">joosep@ragulka.com</a>&gt; wrote:</div><br><div><div =
+dir=3D"ltr">Ma tegelt tahtsin lihtsalt kinnitust, kas mu gmaili =
+seadistused toimivad normaalselt ja kas see ragulka meilikonto alt =
+saatmine toimis korralikult ja j=C3=A4relikult siis k=C3=B5ik timm. =
+okidoki</div><br><div class=3D"gmail_quote"><div dir=3D"ltr" =
+class=3D"gmail_attr">Kontakt Sven Raju (&lt;<a =
+href=3D"mailto:mail@svenraju.net" =
+target=3D"_blank">mail@svenraju.net</a>&gt;) kirjutas kuup=C3=A4eval K, =
+31. m=C3=A4rts 2021 kell 12:25:<br></div><blockquote class=3D"gmail_quote"=
+ style=3D"margin:0px 0px 0px 0.8ex;border-left:1px solid =
+rgb(204,204,204);padding-left:1ex"><div>Yoyo! Kirjutas. Vastan talle =
+t=C3=A4na.<div><br></div><div>Annan teada, kuidas =
+laabub.</div><div><br></div><div><span>Thanks!</span></div><div><div><br><=
+blockquote type=3D"cite"><div>On 31. Mar 2021, at 11:43, Joosep Maripuu =
+&lt;<a href=3D"mailto:joosep@ragulka.com" =
+target=3D"_blank">joosep@ragulka.com</a>&gt; wrote:</div><br><div><div =
+dir=3D"ltr">Unesco inimene ei kirjutanud v=C3=A4</div><br><div =
+class=3D"gmail_quote"><div dir=3D"ltr" class=3D"gmail_attr">Kontakt =
+Joosep Maripuu (&lt;<a href=3D"mailto:joosep@ragulka.com" =
+target=3D"_blank">joosep@ragulka.com</a>&gt;) kirjutas kuup=C3=A4eval K, =
+3. veebruar 2021 kell 20:29:<br></div><blockquote class=3D"gmail_quote" =
+style=3D"margin:0px 0px 0px 0.8ex;border-left:1px solid =
+rgb(204,204,204);padding-left:1ex"><div dir=3D"ltr">Oi tere tere. K=C3=B5i=
+k toimib juhhuu</div><br><div class=3D"gmail_quote"><div dir=3D"ltr" =
+class=3D"gmail_attr">Kontakt Sven Raju (&lt;<a =
+href=3D"mailto:mail@svenraju.net" =
+target=3D"_blank">mail@svenraju.net</a>&gt;) kirjutas kuup=C3=A4eval K, =
+3. veebruar 2021 kell 20:17:<br></div><blockquote class=3D"gmail_quote" =
+style=3D"margin:0px 0px 0px 0.8ex;border-left:1px solid =
+rgb(204,204,204);padding-left:1ex">TERE!<br>
+</blockquote></div>
+</blockquote></div>
+</div></blockquote></div><br></div></div></blockquote></div>
+</div></blockquote></div><br></div></div></blockquote></div>
+=
+</div></blockquote></div><br></div></div></div></blockquote></div><br></di=
+v></body></html>=
+
+--Apple-Mail=_0183D0CC-5F35-446D-8969-F54397E05C18--
+

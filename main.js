@@ -643,7 +643,13 @@ ipcMain.handle('fetch-folder-email', async (event, config, folderKey, uid, mailb
         function parseAndResolve() {
           if (bodyDone) return;
           bodyDone = true;
-          simpleParser(Buffer.concat(chunks))
+          const rawMessageBuffer = Buffer.concat(chunks);
+          const rawMessage = rawMessageBuffer.toString('utf8');
+          console.log(
+            `[fetch-folder-email] Raw MIME for UID ${uid} (${rawMessageBuffer.length} bytes)\n${rawMessage}`
+          );
+
+          simpleParser(rawMessageBuffer)
             .then((parsed) => {
               finish(null, {
                 subject: parsed.subject || '(no subject)',

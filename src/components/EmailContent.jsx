@@ -88,7 +88,9 @@ function EmailContent({ email }) {
 
   return (
     <>
-      <h3>{email.subject}</h3>
+      <div className={styles.subjectRow}>
+        <h3>{email.subject}</h3>
+      </div>
       <div className={styles.meta}>
         <b>From:</b> {formatHeaderValue(email.from)}
         <br />
@@ -230,6 +232,10 @@ function HtmlEmailFrame({ html }) {
 
 function PlaintextThread({ segments, email }) {
   const identity = useMemo(() => buildParticipantIdentity(email), [email]);
+  const segmentRoles = useMemo(
+    () => segments.map((segment) => inferSegmentRole(segment, identity)),
+    [segments, identity]
+  );
   const cidMap = useMemo(() => buildCidAttachmentMap(email?.attachments), [email?.attachments]);
   const latestReplyHtml = useMemo(
     () => extractLatestReplyHtml(email?.html, email?.attachments),
@@ -249,7 +255,7 @@ function PlaintextThread({ segments, email }) {
   return (
     <div className={styles.threadList}>
       {segments.map((segment, index) => {
-        const role = inferSegmentRole(segment, identity);
+        const role = segmentRoles[index] || 'unknown';
         const blockClassName = [
           styles.threadBlock,
           role === 'self' ? styles.threadBlockSelf : '',
@@ -258,7 +264,10 @@ function PlaintextThread({ segments, email }) {
           .filter(Boolean)
           .join(' ');
         const isLast = index === lastIndex;
-        const showHtmlBody = isLast && Boolean(latestReplyHtml);
+        const showSentTag =
+          Boolean(email?.isThreadInjectedFromSent) &&
+          (role === 'self' || isLast);
+        const showHtmlBody = isLast && segments.length <= 1 && Boolean(latestReplyHtml);
         const showOrphanImages = isLast && orphanImages.length > 0;
 
         return (
@@ -274,6 +283,7 @@ function PlaintextThread({ segments, email }) {
               {segment.dateHint ? (
                 <span className={styles.threadBlockDate}>{segment.dateHint}</span>
               ) : null}
+              {showSentTag ? <span className={styles.sentTag}>found in sent</span> : null}
             </header>
             {showHtmlBody ? (
               <div
@@ -500,7 +510,8 @@ function extractQuoteDepth(line) {
 }
 
 function parsePlaintextThread(text) {
-  const lines = String(text || '').split(/\r?\n/);
+  const normalizedText = normalizeThreadText(text);
+  const lines = String(normalizedText || '').split('\n');
   const segments = [];
   let currentLines = [];
   let currentBoundaryLine = '';
@@ -515,14 +526,16 @@ function parsePlaintextThread(text) {
       return;
     }
 
-    const dequoted = stripPerLineQuoteMarkers(trimmed);
+    const depthInfo = stripPerLineQuoteMarkers(trimmed);
+    const bodyLines = stripLeadingBoundaryLines(trimmed);
+    const bodyInfo = stripPerLineQuoteMarkers(bodyLines.length ? bodyLines : trimmed);
     const senderHint = extractSenderHint(currentBoundaryLine, trimmed);
     const dateHint = extractDateHint(currentBoundaryLine, trimmed);
 
     segments.push({
       id: `segment-${segments.length}`,
-      text: dequoted.text,
-      quoteDepth: dequoted.minDepth,
+      text: bodyInfo.text,
+      quoteDepth: depthInfo.minDepth,
       hasBoundaryMarker: currentHasBoundary,
       senderHint,
       dateHint,
@@ -572,6 +585,50 @@ function parsePlaintextThread(text) {
   return segments;
 }
 
+function normalizeThreadText(text) {
+  const source = String(text || '');
+  if (!source) return '';
+
+  const normalizedLineEndings = source.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  const hasSoftBreaks = /=\n/.test(normalizedLineEndings);
+  const hasUtf8HexEscapes = /=(?:C2|C3|C4|C5|C6|C7|C8|C9|CA|CB|CC|CD|CE|CF|D0|D1|D2|D3|D4|D5|D6|D7|D8|D9|DA|DB|DC|DD|DE|DF|E2|E3|E4|E5|E6|E7|E8|E9|EA|EB|EC|ED|EE|EF)/i.test(
+    normalizedLineEndings
+  );
+
+  if (!hasSoftBreaks && !hasUtf8HexEscapes) {
+    return normalizedLineEndings;
+  }
+
+  const unfolded = normalizedLineEndings.replace(/=\n/g, '');
+  if (!/=([0-9A-F]{2})/i.test(unfolded)) {
+    return unfolded;
+  }
+
+  try {
+    return decodeQuotedPrintableText(unfolded);
+  } catch {
+    return unfolded;
+  }
+}
+
+function decodeQuotedPrintableText(value) {
+  const input = String(value || '');
+  const encoder = new TextEncoder();
+  const bytes = [];
+
+  for (let index = 0; index < input.length; index += 1) {
+    const char = input[index];
+    if (char === '=' && /^[0-9a-f]{2}$/i.test(input.slice(index + 1, index + 3))) {
+      bytes.push(parseInt(input.slice(index + 1, index + 3), 16));
+      index += 2;
+      continue;
+    }
+    bytes.push(...encoder.encode(char));
+  }
+
+  return new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes));
+}
+
 function normalizeThreadOrder(segments) {
   if (segments.length < 2) {
     return segments;
@@ -604,30 +661,84 @@ function detectBoundaryLine(line, previousLine, nextLine) {
   if (!value) return false;
 
   const dequoted = extractQuoteDepth(value).content.trim();
+  const previousDequoted = extractQuoteDepth(String(previousLine || '').trim()).content.trim();
+  const nextDequoted = extractQuoteDepth(String(nextLine || '').trim()).content.trim();
+  const boundaryCandidates = buildBoundaryCandidates(line, nextLine);
 
   const explicitPatterns = [
     /^on\s.+\bwrote:\s*$/i,
     /^on\s.+\bat\s.+\bwrote:\s*$/i,
     /^.+\bwrote:\s*$/i,
+    /^am\s.+\bschrieb\s.+:\s*$/i,
+    /^le\s.+\ba\s+[eé]crit\s*:\s*$/i,
+    /^el\s.+\bescribi[oó]\s*:\s*$/i,
+    /^den\s.+\bskrev\s.+:\s*$/i,
     /^kontakt\s+.+\skirjutas\s+kuup[äa]eval\s+.+:\s*$/i,
     /^.+\skirjutas\s+kuup[äa]eval\s+.+:\s*$/i,
     /^-+\s*original message\s*-+$/i,
     /^-+\s*forwarded message\s*-+$/i,
     /^begin forwarded message:\s*$/i,
+    /^_{5,}\s*$/i,
   ];
 
-  if (explicitPatterns.some((pattern) => pattern.test(value) || pattern.test(dequoted))) {
+  if (
+    explicitPatterns.some((pattern) =>
+      boundaryCandidates.some((candidate) => pattern.test(candidate))
+    )
+  ) {
     return true;
   }
 
-  if (/^(from|date|to|subject|sent|cc):\s+/i.test(dequoted)) {
-    const previousIsBlank = !String(previousLine || '').trim();
-    const nextDequoted = extractQuoteDepth(String(nextLine || '').trim()).content.trim();
-    const nextLooksLikeHeader = /^(from|date|to|subject|sent|cc):\s+/i.test(nextDequoted);
-    return previousIsBlank && nextLooksLikeHeader;
+  if (isHeaderLine(dequoted)) {
+    const previousLooksLikeHeader = isHeaderLine(previousDequoted);
+    const nextLooksLikeHeader = isHeaderLine(nextDequoted);
+    return !previousLooksLikeHeader && nextLooksLikeHeader;
   }
 
   return false;
+}
+
+function isHeaderLine(line) {
+  return /^(from|date|to|subject|sent|cc|bcc|reply-to):\s+/i.test(String(line || '').trim());
+}
+
+function buildBoundaryCandidates(line, nextLine) {
+  const value = String(line || '').trim();
+  const dequoted = extractQuoteDepth(value).content.trim();
+  const mergedBoundary = mergeWrappedBoundaryLine(line, nextLine);
+  const candidates = [value, dequoted, mergedBoundary].filter(Boolean);
+  return Array.from(new Set(candidates));
+}
+
+function mergeWrappedBoundaryLine(line, nextLine) {
+  const currentValue = String(line || '').trim();
+  const nextValue = String(nextLine || '').trim();
+  if (!currentValue || !nextValue) return '';
+
+  const current = extractQuoteDepth(currentValue);
+  const next = extractQuoteDepth(nextValue);
+  const currentPlain = current.content.trim();
+  const nextPlain = next.content.trim();
+  if (!currentPlain || !nextPlain) return '';
+  if (current.depth !== next.depth) return '';
+  if (!looksLikeWrappedBoundary(currentPlain, nextPlain)) return '';
+
+  return `${currentPlain} ${nextPlain}`.replace(/\s+/g, ' ').trim();
+}
+
+function looksLikeWrappedBoundary(currentPlain, nextPlain) {
+  if (!currentPlain || !nextPlain) return false;
+  if (/:\s*$/.test(currentPlain)) return false;
+
+  const startsBoundary =
+    /kirjutas\s+kuup[äa]eval/i.test(currentPlain) ||
+    /\bon\s.+\bwrote\b/i.test(currentPlain) ||
+    /\bam\s.+\bschrieb\b/i.test(currentPlain) ||
+    /\ble\s.+\ba\s+[eé]crit\b/i.test(currentPlain) ||
+    /\bel\s.+\bescribi[oó]\b/i.test(currentPlain);
+  if (!startsBoundary) return false;
+
+  return /:\s*$/.test(nextPlain) || /\b(kell|at)\b/i.test(nextPlain) || /\d{1,2}:\d{2}/.test(nextPlain);
 }
 
 function trimBlankEdges(lines) {
@@ -643,6 +754,40 @@ function trimBlankEdges(lines) {
   }
 
   return lines.slice(start, end);
+}
+
+function stripLeadingBoundaryLines(lines) {
+  const source = Array.isArray(lines) ? [...lines] : [];
+  if (!source.length) return source;
+
+  const first = source[0];
+  const second = source[1] || '';
+  if (!detectBoundaryLine(first, '', second)) {
+    return source;
+  }
+
+  let dropCount = 1;
+  let composedBoundary = extractQuoteDepth(String(first || '').trim()).content.trim();
+
+  while (dropCount < source.length && composedBoundary && !/:\s*$/.test(composedBoundary)) {
+    const previous = source[dropCount - 1];
+    const current = source[dropCount];
+    const merged = mergeWrappedBoundaryLine(previous, current);
+
+    if (merged) {
+      composedBoundary = merged;
+      dropCount += 1;
+      continue;
+    }
+
+    break;
+  }
+
+  const remaining = source.slice(dropCount);
+  while (remaining.length && !String(remaining[0] || '').trim()) {
+    remaining.shift();
+  }
+  return remaining;
 }
 
 function stripPerLineQuoteMarkers(lines) {
@@ -669,61 +814,84 @@ function stripPerLineQuoteMarkers(lines) {
 }
 
 function extractSenderHint(boundaryLine, lines) {
-  const candidates = [boundaryLine, ...lines].filter(Boolean);
+  const candidates = buildHintCandidates(boundaryLine, lines);
 
   for (const candidate of candidates) {
-    const value = String(candidate || '').trim();
-    if (!value) continue;
-    const plain = extractQuoteDepth(value).content.trim();
+    const plain = String(candidate || '').trim();
+    if (!plain) continue;
 
     const fromMatch = plain.match(/^from:\s+(.+)$/i);
     if (fromMatch) {
-      return fromMatch[1].trim();
+      return normalizeSenderHint(fromMatch[1].trim());
     }
 
     const onAtWroteMatch = plain.match(/^on\s.+?\bat\s.+?\s+(.+?)\s+wrote:\s*$/i);
     if (onAtWroteMatch) {
-      return onAtWroteMatch[1].trim();
+      return normalizeSenderHint(onAtWroteMatch[1].trim());
     }
 
     const onCommaWroteMatch = plain.match(/^on\s.+?,\s*(.+?)\s+wrote:\s*$/i);
     if (onCommaWroteMatch) {
-      return onCommaWroteMatch[1].trim();
+      return normalizeSenderHint(onCommaWroteMatch[1].trim());
     }
 
     const onWroteMatch = plain.match(/^on\s.+?\s(.+?)\s+wrote:\s*$/i);
     if (onWroteMatch) {
       const candidateName = onWroteMatch[1].trim();
       if (/[a-z]/i.test(candidateName)) {
-        return candidateName;
+        return normalizeSenderHint(candidateName);
       }
+    }
+
+    const germanMatch = plain.match(/^am\s+.+?\s+schrieb\s+(.+?):\s*$/i);
+    if (germanMatch) {
+      return normalizeSenderHint(germanMatch[1].trim());
+    }
+
+    const frenchMatch = plain.match(/^le\s+.+?\s+(.+?)\s+a\s+[eé]crit\s*:\s*$/i);
+    if (frenchMatch) {
+      return normalizeSenderHint(frenchMatch[1].trim());
+    }
+
+    const spanishMatch = plain.match(/^el\s+.+?\s+(.+?)\s+escribi[oó]\s*:\s*$/i);
+    if (spanishMatch) {
+      return normalizeSenderHint(spanishMatch[1].trim());
     }
 
     const estonianKontaktMatch = plain.match(
       /^kontakt\s+(.+?)\s+\(.+?\)\s+kirjutas\s+kuup[äa]eval\s+.+:\s*$/i
     );
     if (estonianKontaktMatch) {
-      return estonianKontaktMatch[1].trim();
+      return normalizeSenderHint(estonianKontaktMatch[1].trim());
     }
 
     const estonianGenericMatch = plain.match(
       /^(.+?)\s+kirjutas\s+kuup[äa]eval\s+.+:\s*$/i
     );
     if (estonianGenericMatch) {
-      return estonianGenericMatch[1].trim();
+      return normalizeSenderHint(estonianGenericMatch[1].trim());
     }
   }
 
   return '';
 }
 
+function normalizeSenderHint(value) {
+  return String(value || '')
+    .replace(/<mailto:[^>]+>/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/\s+</g, ' <')
+    .replace(/<\s+/g, '<')
+    .replace(/\s+>/g, '>')
+    .trim();
+}
+
 function extractDateHint(boundaryLine, lines) {
-  const candidates = [boundaryLine, ...lines].filter(Boolean);
+  const candidates = buildHintCandidates(boundaryLine, lines);
 
   for (const candidate of candidates) {
-    const value = String(candidate || '').trim();
-    if (!value) continue;
-    const plain = extractQuoteDepth(value).content.trim();
+    const plain = String(candidate || '').trim();
+    if (!plain) continue;
 
     const sentMatch = plain.match(/^sent:\s+(.+)$/i);
     if (sentMatch) return sentMatch[1].trim();
@@ -731,8 +899,20 @@ function extractDateHint(boundaryLine, lines) {
     const dateMatch = plain.match(/^date:\s+(.+)$/i);
     if (dateMatch) return dateMatch[1].trim();
 
+    const onCommaMatch = plain.match(/^on\s+(.+),\s+.+?\s+wrote:\s*$/i);
+    if (onCommaMatch) return onCommaMatch[1].trim();
+
     const onMatch = plain.match(/^on\s+(.+?)\s+.+?\s+wrote:\s*$/i);
     if (onMatch) return onMatch[1].trim();
+
+    const germanMatch = plain.match(/^am\s+(.+?)\s+schrieb\s+.+:\s*$/i);
+    if (germanMatch) return germanMatch[1].trim();
+
+    const frenchMatch = plain.match(/^le\s+(.+?)\s+.+?\s+a\s+[eé]crit\s*:\s*$/i);
+    if (frenchMatch) return frenchMatch[1].trim();
+
+    const spanishMatch = plain.match(/^el\s+(.+?)\s+.+?\s+escribi[oó]\s*:\s*$/i);
+    if (spanishMatch) return spanishMatch[1].trim();
 
     const estonianMatch = plain.match(/kirjutas\s+kuup[äa]eval\s+(.+):\s*$/i);
     if (estonianMatch) return estonianMatch[1].trim();
@@ -741,10 +921,38 @@ function extractDateHint(boundaryLine, lines) {
   return '';
 }
 
+function buildHintCandidates(boundaryLine, lines) {
+  const source = [boundaryLine, ...(Array.isArray(lines) ? lines : [])];
+  const candidates = [];
+
+  for (let index = 0; index < source.length; index += 1) {
+    const value = String(source[index] || '').trim();
+    if (!value) continue;
+
+    const plain = extractQuoteDepth(value).content.trim();
+    if (plain) {
+      candidates.push(plain);
+    }
+
+    const nextLine = index < source.length - 1 ? source[index + 1] : '';
+    const merged = mergeWrappedBoundaryLine(value, nextLine);
+    if (merged) {
+      candidates.push(merged);
+    }
+  }
+
+  return Array.from(new Set(candidates));
+}
+
 function buildParticipantIdentity(email) {
+  const isSentOrigin =
+    Boolean(email?.isThreadInjectedFromSent) ||
+    String(email?.folderKey || '').toLowerCase() === 'sent';
+  const selfSource = isSentOrigin ? email?.from : email?.to;
+  const otherSource = isSentOrigin ? email?.to : email?.from;
   return {
-    selfTokens: tokenizeIdentity(`${email?.to || ''}`),
-    otherTokens: tokenizeIdentity(`${email?.from || ''}`),
+    selfTokens: tokenizeIdentity(`${selfSource || ''}`),
+    otherTokens: tokenizeIdentity(`${otherSource || ''}`),
   };
 }
 
@@ -755,9 +963,15 @@ function tokenizeIdentity(value) {
 
 function inferSegmentRole(segment, identity) {
   const hint = String(segment?.senderHint || '').toLowerCase();
-  if (!hint) return 'unknown';
-  if (identity.selfTokens.some((token) => hint.includes(token))) return 'self';
-  if (identity.otherTokens.some((token) => hint.includes(token))) return 'other';
+  if (hint) {
+    if (identity.selfTokens.some((token) => hint.includes(token))) return 'self';
+    if (identity.otherTokens.some((token) => hint.includes(token))) return 'other';
+  }
+  const text = String(segment?.text || '').toLowerCase();
+  const selfInText = identity.selfTokens.some((token) => text.includes(token));
+  const otherInText = identity.otherTokens.some((token) => text.includes(token));
+  if (selfInText && !otherInText) return 'self';
+  if (otherInText && !selfInText) return 'other';
   return 'unknown';
 }
 
@@ -778,7 +992,7 @@ function getAddressForActions(value) {
 }
 
 function getSenderDisplayName(value) {
-  const stringValue = String(value || '').trim();
+  const stringValue = normalizeSenderHint(value);
   if (!stringValue) {
     return '';
   }

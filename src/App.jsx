@@ -33,6 +33,73 @@ function getEmailThreadKey(email, fallbackKey) {
   return email.messageId || email.inReplyTo || fallbackKey;
 }
 
+function normalizeConversationToken(value) {
+  if (!value) return '';
+  return String(value).trim().replace(/^<|>$/g, '').toLowerCase();
+}
+
+function getEmailConversationTokens(email) {
+  return [email.messageId, email.inReplyTo, ...(email.references || [])]
+    .map((value) => normalizeConversationToken(value))
+    .filter(Boolean);
+}
+
+function getEmailTimestamp(email) {
+  const rawDate = email?.dateRaw || email?.date || '';
+  const parsed = Date.parse(rawDate);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
+
+function buildConversationIndex(emails) {
+  const tokens = new Set();
+  emails.forEach((email) => {
+    getEmailConversationTokens(email).forEach((token) => tokens.add(token));
+  });
+  return { tokens, inboxEmails: emails };
+}
+
+function hasSharedConversationToken(emailA, emailB) {
+  const tokensA = getEmailConversationTokens(emailA);
+  if (!tokensA.length) return false;
+  const tokensB = new Set(getEmailConversationTokens(emailB));
+  return tokensA.some((token) => tokensB.has(token));
+}
+
+function isEmailRelatedToConversation(email, conversationIndex) {
+  if (!conversationIndex) return false;
+  const tokens = getEmailConversationTokens(email);
+  if (!tokens.length) return false;
+  const tokenMatch = tokens.some((token) => conversationIndex.tokens.has(token));
+  if (!tokenMatch) return false;
+
+  const relatedInboxEmails = (conversationIndex.inboxEmails || []).filter((inboxEmail) =>
+    hasSharedConversationToken(email, inboxEmail)
+  );
+  if (!relatedInboxEmails.length) return false;
+
+  const sentTime = getEmailTimestamp(email);
+  if (!Number.isFinite(sentTime)) return false;
+
+  const latestInboxTime = relatedInboxEmails.reduce((latest, inboxEmail) => {
+    const inboxTime = getEmailTimestamp(inboxEmail);
+    return Number.isFinite(inboxTime) ? Math.max(latest, inboxTime) : latest;
+  }, Number.NEGATIVE_INFINITY);
+
+  if (!Number.isFinite(latestInboxTime)) return true;
+  return sentTime > latestInboxTime;
+}
+
+function compareEmailsByRecency(a, b) {
+  const aTime = Date.parse(a?.dateRaw || '');
+  const bTime = Date.parse(b?.dateRaw || '');
+  const hasATime = Number.isFinite(aTime);
+  const hasBTime = Number.isFinite(bTime);
+  if (hasATime && hasBTime && aTime !== bTime) {
+    return bTime - aTime;
+  }
+  return Number(b?.uid || 0) - Number(a?.uid || 0);
+}
+
 function groupEmailsByThread(emails) {
   const idToThreadId = new Map();
   const threads = new Map();
@@ -53,9 +120,7 @@ function groupEmailsByThread(emails) {
 
   return Array.from(threads.values()).map((thread) => ({
     ...thread,
-    emails: thread.emails
-      .slice()
-      .sort((a, b) => Number(b.uid || 0) - Number(a.uid || 0)),
+    emails: thread.emails.slice().sort(compareEmailsByRecency),
   }));
 }
 
@@ -351,12 +416,31 @@ function App() {
             item.mailboxMap || {},
             { limit: requestedLimit }
           ));
+          const requestedFolderEmails = folderResult.emails.map((email) =>
+            ({ ...withMailboxEmailMeta(email, item.id, requestedFolderKey), isThreadInjectedFromSent: false })
+          );
+          let mergedEmails = requestedFolderEmails;
+          if (requestedFolderKey === 'inbox') {
+            try {
+              const sentResult = getFolderEmailResult(await window.electronAPI.fetchFolderEmails(
+                item,
+                'sent',
+                item.mailboxMap || {},
+                { limit: requestedLimit }
+              ));
+              const conversationIndex = buildConversationIndex(folderResult.emails);
+              const relatedSentEmails = sentResult.emails
+                .filter((email) => isEmailRelatedToConversation(email, conversationIndex))
+                .map((email) => ({ ...withMailboxEmailMeta(email, item.id, 'sent'), isThreadInjectedFromSent: true }));
+              mergedEmails = [...requestedFolderEmails, ...relatedSentEmails];
+            } catch (e) {
+              mergedEmails = requestedFolderEmails;
+            }
+          }
           return {
             mailboxId: item.id,
             hasMore: folderResult.hasMore,
-            emails: folderResult.emails.map((email) =>
-              withMailboxEmailMeta(email, item.id, requestedFolderKey)
-            ),
+            emails: mergedEmails,
           };
         })
       );
@@ -371,10 +455,31 @@ function App() {
         mailbox.mailboxMap || {},
         { limit: requestedLimit }
       ));
-      sortedEmails = folderResult.emails
-        .map((email) => withMailboxEmailMeta(email, mailbox.id, requestedFolderKey))
-        .slice()
-        .sort((a, b) => Number(b.uid || 0) - Number(a.uid || 0));
+      const requestedFolderEmails = folderResult.emails.map((email) =>
+        ({ ...withMailboxEmailMeta(email, mailbox.id, requestedFolderKey), isThreadInjectedFromSent: false })
+      );
+
+      if (requestedFolderKey === 'inbox') {
+        let relatedSentEmails = [];
+        try {
+          const sentResult = getFolderEmailResult(await window.electronAPI.fetchFolderEmails(
+            mailbox,
+            'sent',
+            mailbox.mailboxMap || {},
+            { limit: requestedLimit }
+          ));
+          const inboxConversationIndex = buildConversationIndex(folderResult.emails);
+          relatedSentEmails = sentResult.emails
+            .filter((email) => isEmailRelatedToConversation(email, inboxConversationIndex))
+            .map((email) => ({ ...withMailboxEmailMeta(email, mailbox.id, 'sent'), isThreadInjectedFromSent: true }));
+        } catch (e) {
+          relatedSentEmails = [];
+        }
+
+        sortedEmails = [...requestedFolderEmails, ...relatedSentEmails].sort(compareEmailsByRecency);
+      } else {
+        sortedEmails = requestedFolderEmails.slice().sort(compareEmailsByRecency);
+      }
       hasMore = folderResult.hasMore;
       if (FOLDER_COUNT_KEYS.includes(requestedFolderKey)) {
         const unreadCount = await window.electronAPI.fetchFolderUnreadCount(
@@ -459,13 +564,17 @@ function App() {
       }
 
       setEmails((currentEmails) => {
-        const emailsByUid = new Map(currentEmails.map((email) => [String(email.uid), email]));
-        folderResult.emails.forEach((email) => {
-          emailsByUid.set(String(email.uid), email);
-        });
-        const nextEmails = Array.from(emailsByUid.values()).sort(
-          (a, b) => Number(b.uid || 0) - Number(a.uid || 0)
+        const emailsByUid = new Map(
+          currentEmails.map((email) => [String(email.selectionUid || email.uid), email])
         );
+        folderResult.emails.forEach((email) => {
+          const withMeta = withMailboxEmailMeta(email, mailbox.id, folderKey);
+          emailsByUid.set(String(withMeta.selectionUid || withMeta.uid), {
+            ...withMeta,
+            isThreadInjectedFromSent: false,
+          });
+        });
+        const nextEmails = Array.from(emailsByUid.values()).sort(compareEmailsByRecency);
         loadedEmailLimitRef.current = Math.max(EMAIL_PAGE_SIZE, nextEmails.length);
         return nextEmails;
       });
@@ -562,7 +671,13 @@ function App() {
         email.uid,
         mailbox.mailboxMap || {}
       );
-      setSelectedEmail(content);
+      setSelectedEmail({
+        ...content,
+        folderKey,
+        mailboxId: mailbox.id,
+        selectionUid: email.selectionUid || String(email.uid),
+        isThreadInjectedFromSent: Boolean(email.isThreadInjectedFromSent),
+      });
       localStorage.setItem(getFolderUidStorageKey(mailbox.id, folderKey), String(email.uid));
       setStatus('Email loaded.');
     } catch (e) {
