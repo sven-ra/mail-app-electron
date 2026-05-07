@@ -87,7 +87,7 @@ function EmailContent({ email }) {
   if (email.error) return <div>{email.error}</div>;
 
   return (
-    <article className={styles.content}>
+    <>
       <h3>{email.subject}</h3>
       <div className={styles.meta}>
         <b>From:</b> {formatHeaderValue(email.from)}
@@ -158,7 +158,7 @@ function EmailContent({ email }) {
           <EditorContent editor={editor} />
         </div>
       </div>
-    </article>
+    </>
   );
 }
 
