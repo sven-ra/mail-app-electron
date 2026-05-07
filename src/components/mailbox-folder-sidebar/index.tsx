@@ -1,6 +1,6 @@
 import React from 'react';
-import styles from '../App.module.css';
-import type { FolderDefinition, FolderKey, MailboxConfig } from '../types/mail';
+import styles from './styles.module.css';
+import type { FolderDefinition, FolderKey, MailboxConfig } from '../../types/mail';
 
 type MailboxFolderSidebarProps = {
   mailboxes: MailboxConfig[];

@@ -1,0 +1,16 @@
+.meta {
+  margin-bottom: 8px;
+}
+
+.subjectRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.messageArea {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+}

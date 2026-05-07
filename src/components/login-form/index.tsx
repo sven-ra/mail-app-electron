@@ -1,6 +1,6 @@
 import React from 'react';
-import styles from './LoginForm.module.css';
-import type { MailboxConfig } from '../types/mail';
+import styles from './styles.module.css';
+import type { MailboxConfig } from '../../types/mail';
 
 type LoginFormProps = {
   config: MailboxConfig;

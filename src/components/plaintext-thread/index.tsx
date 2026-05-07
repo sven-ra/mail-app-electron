@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
-import { extractLatestReplyHtml } from './prepareEmailHtml';
-import SenderDropdown from './SenderDropdown';
+import { extractLatestReplyHtml } from '../prepareEmailHtml';
+import SenderDropdown from '../sender-dropdown';
 import {
   buildCidAttachmentMap,
   buildParticipantIdentity,
@@ -8,9 +8,9 @@ import {
   collectUsedCids,
   inferSegmentRole,
   splitTextByCidMarkers,
-} from '../mail/plaintextThread';
-import styles from './EmailContent.module.css';
-import type { CidAttachmentEntry, LoadedEmailContent, PlaintextSegment } from '../types/mail';
+} from '../../mail/plaintextThread';
+import styles from './styles.module.css';
+import type { CidAttachmentEntry, LoadedEmailContent, PlaintextSegment } from '../../types/mail';
 
 function renderTextWithCidImages(text: string, cidMap: Map<string, CidAttachmentEntry>) {
   const parts = splitTextByCidMarkers(text);

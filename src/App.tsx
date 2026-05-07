@@ -1,10 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useEvent } from 'react-use';
-import LoginForm from './components/LoginForm';
-import InboxPanel from './components/InboxPanel';
-import EmailContentView from './components/EmailContentView';
-import MailboxFolderSidebar from './components/MailboxFolderSidebar';
-import SettingsScreen from './components/SettingsScreen';
+import LoginForm from './components/login-form';
+import InboxPanel from './components/inbox-panel';
+import EmailContentView from './components/email-content-view';
+import MailboxFolderSidebar from './components/mailbox-folder-sidebar';
+import SettingsScreen from './components/settings-screen';
 import './styles/main.css';
 import styles from './App.module.css';
 import {

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import type { UIEvent } from 'react';
-import styles from './InboxPanel.module.css';
-import InboxEmailRow from './InboxEmailRow';
-import type { EmailListItem, ThreadGroup } from '../types/mail';
+import styles from './styles.module.css';
+import InboxEmailRow from '../inbox-email-row';
+import type { EmailListItem, ThreadGroup } from '../../types/mail';
 
 type InboxPanelProps = {
   title: string;

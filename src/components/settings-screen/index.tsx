@@ -1,8 +1,8 @@
 import React from 'react';
 import * as AlertDialog from '@radix-ui/react-alert-dialog';
-import LoginForm from './LoginForm';
-import styles from '../App.module.css';
-import type { MailboxConfig } from '../types/mail';
+import LoginForm from '../login-form';
+import styles from './styles.module.css';
+import type { MailboxConfig } from '../../types/mail';
 
 type SettingsScreenProps = {
   config: MailboxConfig;

@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import styles from './EmailContent.module.css';
-import { prepareEmailHtml } from './prepareEmailHtml';
-import HtmlEmailFrame from './HtmlEmailFrame';
-import PlaintextThread from './PlaintextThread';
-import ReplyEditorDock from './ReplyEditorDock';
-import { decodeHeaderValue, normalizeThreadOrder, parsePlaintextThread } from '../mail/plaintextThread';
-import type { LoadedEmailContent, SelectedEmailState } from '../types/mail';
+import styles from './styles.module.css';
+import { prepareEmailHtml } from '../prepareEmailHtml';
+import HtmlEmailFrame from '../html-email-frame';
+import PlaintextThread from '../plaintext-thread';
+import ReplyEditorDock from '../reply-editor-dock';
+import { decodeHeaderValue, normalizeThreadOrder, parsePlaintextThread } from '../../mail/plaintextThread';
+import type { LoadedEmailContent, SelectedEmailState } from '../../types/mail';
 
 type EmailContentViewProps = {
   email: SelectedEmailState;
@@ -50,7 +50,7 @@ function EmailContentView({ email }: EmailContentViewProps) {
       Array.from(node.children).forEach((child) => observer.observe(child));
     }
 
-    const imageHandlers = [];
+    const imageHandlers: Array<{ img: HTMLImageElement; handler: () => void }> = [];
     node.querySelectorAll<HTMLImageElement>('img').forEach((img) => {
       if (img.complete) return;
       const handler = () => scrollToBottom();

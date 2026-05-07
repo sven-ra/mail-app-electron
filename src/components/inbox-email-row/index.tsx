@@ -1,6 +1,6 @@
 import React from 'react';
-import styles from './InboxPanel.module.css';
-import type { EmailListItem } from '../types/mail';
+import styles from './styles.module.css';
+import type { EmailListItem } from '../../types/mail';
 
 function formatRowDate(dateValue: string | undefined): string {
   if (!dateValue) return '';

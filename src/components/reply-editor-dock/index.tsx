@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import styles from './EmailContent.module.css';
+import styles from './styles.module.css';
 
 function ReplyEditorDock() {
   const editor = useEditor({

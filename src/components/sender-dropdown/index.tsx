@@ -1,7 +1,7 @@
 import React from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { getAddressForActions, getSenderDisplayName } from '../mail/plaintextThread';
-import styles from './EmailContent.module.css';
+import { getAddressForActions, getSenderDisplayName } from '../../mail/plaintextThread';
+import styles from './styles.module.css';
 
 type SenderDropdownProps = {
   label: string;
