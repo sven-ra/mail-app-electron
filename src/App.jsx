@@ -132,6 +132,10 @@ function App() {
   }
 
   useEvent('keydown', (event) => {
+    if (event.key === 'Escape' && loggedIn && currentPage === 'settings') {
+      handleOpenInbox();
+      return;
+    }
     if (!event.shiftKey) return;
     if (event.key !== 'm' && event.key !== 'M') return;
     handleToggleThemeMode();
