@@ -1,322 +1,21 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { EditorContent, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import styles from './EmailContent.module.css';
-import { prepareEmailHtml, extractLatestReplyHtml } from './prepareEmailHtml.js';
+import type {
+  CidAttachmentEntry,
+  EmailAttachment,
+  EmailListItem,
+  ParticipantIdentity,
+  PlaintextSegment,
+} from '../types/mail';
 
-function EmailContent({ email }) {
-  const messageAreaRef = useRef(null);
-  const editor = useEditor({
-    extensions: [StarterKit],
-    content: '',
-    editable: true,
-    editorProps: {
-      attributes: {
-        class: styles.proseMirrorEditable,
-      },
-    },
-  });
+const CID_MARKER_REGEX = /\[cid:([^\]]+)\]/gi;
 
-  useEffect(() => {
-    if (!editor) return;
-    editor.commands.focus('end');
-  }, [editor]);
+type CidTextPart = { type: 'text'; value: string };
+type CidMarkerPart = { type: 'cid'; value: string; raw: string };
+export type CidTextPartResult = CidTextPart | CidMarkerPart;
 
-  const preparedHtml = useMemo(() => {
-    if (!email || email.loading || email.error) return '';
-    return prepareEmailHtml(email.html, email.attachments);
-  }, [email]);
-
-  const threadSegments = useMemo(() => {
-    if (!email || email.loading || email.error) return [];
-    return normalizeThreadOrder(parsePlaintextThread(email.text || ''));
-  }, [email]);
-
-  const showHtml = Boolean(preparedHtml) && threadSegments.length <= 1;
-
-  useEffect(() => {
-    const node = messageAreaRef.current;
-    if (!node) return;
-    if (!email || email.loading || email.error) return;
-    if (showHtml) return;
-
-    let active = true;
-    const scrollToBottom = () => {
-      if (!active) return;
-      node.scrollTop = node.scrollHeight;
-    };
-
-    scrollToBottom();
-    const raf = window.requestAnimationFrame(scrollToBottom);
-
-    let observer = null;
-    if (typeof ResizeObserver !== 'undefined') {
-      observer = new ResizeObserver(() => scrollToBottom());
-      observer.observe(node);
-      Array.from(node.children).forEach((child) => observer.observe(child));
-    }
-
-    const imageHandlers = [];
-    node.querySelectorAll('img').forEach((img) => {
-      if (img.complete) return;
-      const handler = () => scrollToBottom();
-      img.addEventListener('load', handler, { once: true });
-      img.addEventListener('error', handler, { once: true });
-      imageHandlers.push({ img, handler });
-    });
-
-    const stopTimeout = window.setTimeout(() => {
-      active = false;
-      if (observer) observer.disconnect();
-    }, 1500);
-
-    return () => {
-      active = false;
-      window.cancelAnimationFrame(raf);
-      window.clearTimeout(stopTimeout);
-      if (observer) observer.disconnect();
-      imageHandlers.forEach(({ img, handler }) => {
-        img.removeEventListener('load', handler);
-        img.removeEventListener('error', handler);
-      });
-    };
-  }, [email, showHtml]);
-
-  if (!email) return <div>Click an email to view content.</div>;
-  if (email.loading) return <div>Loading email...</div>;
-  if (email.error) return <div>{email.error}</div>;
-
-  return (
-    <>
-      <div className={styles.subjectRow}>
-        <h3>{email.subject}</h3>
-      </div>
-      <div className={styles.meta}>
-        <b>From:</b> {formatHeaderValue(email.from)}
-        <br />
-        <b>To:</b> {formatHeaderValue(email.to)}
-        <br />
-        <b>Date:</b> {formatHeaderValue(email.date)}
-        <br />
-        <hr />
-      </div>
-      <div className={styles.messageArea} ref={messageAreaRef}>
-        {showHtml ? (
-          <HtmlEmailFrame html={preparedHtml} />
-        ) : (
-          <PlaintextThread segments={threadSegments} email={email} />
-        )}
-      </div>
-      <div className={styles.editorDock}>
-        <div className={styles.editorToolbar}>
-          <button
-            type="button"
-            className={`${styles.toolbarButton} ${editor?.isActive('bold') ? styles.toolbarButtonActive : ''}`}
-            onClick={() => editor?.chain().focus().toggleBold().run()}
-            disabled={!editor}
-          >
-            Bold
-          </button>
-          <button
-            type="button"
-            className={`${styles.toolbarButton} ${editor?.isActive('italic') ? styles.toolbarButtonActive : ''}`}
-            onClick={() => editor?.chain().focus().toggleItalic().run()}
-            disabled={!editor}
-          >
-            Italic
-          </button>
-          <button
-            type="button"
-            className={`${styles.toolbarButton} ${editor?.isActive('strike') ? styles.toolbarButtonActive : ''}`}
-            onClick={() => editor?.chain().focus().toggleStrike().run()}
-            disabled={!editor}
-          >
-            Strike
-          </button>
-          <button
-            type="button"
-            className={`${styles.toolbarButton} ${editor?.isActive('bulletList') ? styles.toolbarButtonActive : ''}`}
-            onClick={() => editor?.chain().focus().toggleBulletList().run()}
-            disabled={!editor}
-          >
-            Bullet List
-          </button>
-          <button
-            type="button"
-            className={`${styles.toolbarButton} ${editor?.isActive('orderedList') ? styles.toolbarButtonActive : ''}`}
-            onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-            disabled={!editor}
-          >
-            Numbered List
-          </button>
-        </div>
-        <div
-          className={styles.editorContent}
-          onMouseDown={(event) => {
-            event.preventDefault();
-            editor?.chain().focus().run();
-          }}
-        >
-          <EditorContent editor={editor} />
-        </div>
-      </div>
-    </>
-  );
-}
-
-function HtmlEmailFrame({ html }) {
-  const iframeRef = useRef(null);
-  const observerRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (observerRef.current) {
-        observerRef.current.disconnect();
-        observerRef.current = null;
-      }
-    };
-  }, []);
-
-  function syncIframeHeight() {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    const doc = iframe.contentDocument;
-    if (!doc || !doc.documentElement) return;
-    const nextHeight = Math.max(
-      doc.documentElement.scrollHeight,
-      doc.body ? doc.body.scrollHeight : 0
-    );
-    if (nextHeight > 0) {
-      iframe.style.height = `${nextHeight}px`;
-    }
-  }
-
-  function handleLoad() {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
-    const doc = iframe.contentDocument;
-    if (!doc) return;
-
-    syncIframeHeight();
-
-    const images = doc.querySelectorAll('img');
-    images.forEach((img) => {
-      if (img.complete) return;
-      img.addEventListener('load', syncIframeHeight, { once: true });
-      img.addEventListener('error', syncIframeHeight, { once: true });
-    });
-
-    doc.addEventListener('toggle', syncIframeHeight, true);
-
-    if (observerRef.current) {
-      observerRef.current.disconnect();
-    }
-
-    if (typeof ResizeObserver !== 'undefined' && doc.body) {
-      observerRef.current = new ResizeObserver(() => syncIframeHeight());
-      observerRef.current.observe(doc.body);
-    }
-  }
-
-  return (
-    <iframe
-      ref={iframeRef}
-      className={styles.htmlFrame}
-      title="Email HTML content"
-      sandbox="allow-same-origin"
-      srcDoc={html}
-      onLoad={handleLoad}
-    />
-  );
-}
-
-function PlaintextThread({ segments, email }) {
-  const identity = useMemo(() => buildParticipantIdentity(email), [email]);
-  const segmentRoles = useMemo(
-    () => segments.map((segment) => inferSegmentRole(segment, identity)),
-    [segments, identity]
-  );
-  const cidMap = useMemo(() => buildCidAttachmentMap(email?.attachments), [email?.attachments]);
-  const latestReplyHtml = useMemo(
-    () => extractLatestReplyHtml(email?.html, email?.attachments),
-    [email?.html, email?.attachments]
-  );
-  const usedCids = useMemo(() => collectUsedCids(latestReplyHtml, segments, cidMap), [
-    latestReplyHtml,
-    segments,
-    cidMap,
-  ]);
-  const orphanImages = useMemo(
-    () => collectOrphanImages(email?.attachments, usedCids),
-    [email?.attachments, usedCids]
-  );
-  const lastIndex = segments.length - 1;
-
-  return (
-    <div className={styles.threadList}>
-      {segments.map((segment, index) => {
-        const role = segmentRoles[index] || 'unknown';
-        const blockClassName = [
-          styles.threadBlock,
-          role === 'self' ? styles.threadBlockSelf : '',
-          role === 'other' ? styles.threadBlockOther : '',
-        ]
-          .filter(Boolean)
-          .join(' ');
-        const isLast = index === lastIndex;
-        const showSentTag =
-          Boolean(email?.isThreadInjectedFromSent) &&
-          (role === 'self' || isLast);
-        const showHtmlBody = isLast && segments.length <= 1 && Boolean(latestReplyHtml);
-        const showOrphanImages = isLast && orphanImages.length > 0;
-
-        return (
-          <section key={segment.id || index} className={blockClassName}>
-            <header className={styles.threadBlockSender}>
-              {segment.senderHint ? (
-                <SenderDropdown label={segment.senderHint} />
-              ) : (
-                <span className={styles.threadBlockSenderFallback}>
-                  {role === 'self' ? 'You' : email?.from || 'Unknown sender'}
-                </span>
-              )}
-              {segment.dateHint ? (
-                <span className={styles.threadBlockDate}>{segment.dateHint}</span>
-              ) : null}
-              {showSentTag ? <span className={styles.sentTag}>found in sent</span> : null}
-            </header>
-            {showHtmlBody ? (
-              <div
-                className={styles.threadBlockHtml}
-                dangerouslySetInnerHTML={{ __html: latestReplyHtml }}
-              />
-            ) : (
-              <div className={styles.threadBlockBody}>
-                {renderTextWithCidImages(segment.text, cidMap)}
-              </div>
-            )}
-            {showOrphanImages ? (
-              <div className={styles.threadBlockImages}>
-                {orphanImages.map((image) => (
-                  <img
-                    key={image.id}
-                    src={image.dataUrl}
-                    alt={image.alt}
-                    className={styles.threadBlockImage}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </section>
-        );
-      })}
-    </div>
-  );
-}
-
-function buildCidAttachmentMap(attachments) {
-  const map = new Map();
+export function buildCidAttachmentMap(
+  attachments: EmailAttachment[] | undefined
+): Map<string, CidAttachmentEntry> {
+  const map = new Map<string, CidAttachmentEntry>();
   if (!Array.isArray(attachments)) return map;
 
   attachments.forEach((att) => {
@@ -337,48 +36,35 @@ function buildCidAttachmentMap(attachments) {
   return map;
 }
 
-const CID_MARKER_REGEX = /\[cid:([^\]]+)\]/gi;
-
-function renderTextWithCidImages(text, cidMap) {
+export function splitTextByCidMarkers(text: unknown): CidTextPartResult[] {
   const value = String(text || '');
-  if (!value) return value;
-  if (!cidMap || cidMap.size === 0 || !value.includes('[cid:')) {
-    return value;
+  if (!value || !value.includes('[cid:')) {
+    return [{ type: 'text', value }];
   }
 
-  const nodes = [];
+  const parts = [];
   let lastIndex = 0;
   let match;
   CID_MARKER_REGEX.lastIndex = 0;
   while ((match = CID_MARKER_REGEX.exec(value)) !== null) {
     if (match.index > lastIndex) {
-      nodes.push(value.slice(lastIndex, match.index));
+      parts.push({ type: 'text', value: value.slice(lastIndex, match.index) });
     }
-    const rawCid = match[1].trim();
-    const entry = cidMap.get(rawCid.toLowerCase());
-    if (entry) {
-      nodes.push(
-        <img
-          key={`cid-${match.index}`}
-          src={entry.dataUrl}
-          alt={entry.filename || rawCid}
-          className={styles.threadInlineImage}
-        />
-      );
-    } else {
-      nodes.push(match[0]);
-    }
+    parts.push({ type: 'cid', value: match[1].trim().toLowerCase(), raw: match[0] });
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < value.length) {
-    nodes.push(value.slice(lastIndex));
+    parts.push({ type: 'text', value: value.slice(lastIndex) });
   }
-
-  return nodes;
+  return parts;
 }
 
-function collectUsedCids(latestReplyHtml, segments, cidMap) {
-  const used = new Set();
+export function collectUsedCids(
+  latestReplyHtml: string,
+  segments: PlaintextSegment[],
+  cidMap: Map<string, CidAttachmentEntry>
+): Set<string> {
+  const used = new Set<string>();
   if (!cidMap || cidMap.size === 0) return used;
 
   if (typeof latestReplyHtml === 'string' && latestReplyHtml.includes('data:')) {
@@ -407,7 +93,10 @@ function collectUsedCids(latestReplyHtml, segments, cidMap) {
   return used;
 }
 
-function collectOrphanImages(attachments, usedCids) {
+export function collectOrphanImages(
+  attachments: EmailAttachment[] | undefined,
+  usedCids: Set<string>
+): Array<{ id: string; dataUrl: string; alt: string }> {
   if (!Array.isArray(attachments)) return [];
   const result = [];
   const seen = new Set();
@@ -437,59 +126,6 @@ function collectOrphanImages(attachments, usedCids) {
   return result;
 }
 
-function SenderDropdown({ label }) {
-  const address = getAddressForActions(label);
-  const displayName = getSenderDisplayName(label);
-
-  async function handleCopyAddress() {
-    if (!address) {
-      return;
-    }
-
-    if (navigator?.clipboard?.writeText) {
-      await navigator.clipboard.writeText(address);
-      return;
-    }
-
-    const textarea = document.createElement('textarea');
-    textarea.value = address;
-    textarea.setAttribute('readonly', '');
-    textarea.style.position = 'absolute';
-    textarea.style.left = '-9999px';
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textarea);
-  }
-
-  function handleSendMail() {
-    // Placeholder action until send-email flow is implemented.
-  }
-
-  return (
-    <div className={styles.messageSender}>
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <button type="button" className={styles.messageSenderButton}>
-            {displayName}
-          </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content className={styles.senderMenuContent} sideOffset={4} align="start">
-            <DropdownMenu.Label className={styles.senderMenuLabel}>{address || label}</DropdownMenu.Label>
-            <DropdownMenu.Item className={styles.senderMenuItem} onSelect={handleCopyAddress}>
-              Copy address
-            </DropdownMenu.Item>
-            <DropdownMenu.Item className={styles.senderMenuItem} onSelect={handleSendMail}>
-              Send mail
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
-    </div>
-  );
-}
-
 function extractQuoteDepth(line) {
   const value = String(line || '');
   let index = 0;
@@ -510,7 +146,7 @@ function extractQuoteDepth(line) {
   return { depth, content: value.slice(index) };
 }
 
-function parsePlaintextThread(text) {
+export function parsePlaintextThread(text: unknown): PlaintextSegment[] {
   const normalizedText = normalizeThreadText(text);
   const lines = String(normalizedText || '').split('\n');
   const segments = [];
@@ -592,9 +228,10 @@ function normalizeThreadText(text) {
 
   const normalizedLineEndings = source.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const hasSoftBreaks = /=\n/.test(normalizedLineEndings);
-  const hasUtf8HexEscapes = /=(?:C2|C3|C4|C5|C6|C7|C8|C9|CA|CB|CC|CD|CE|CF|D0|D1|D2|D3|D4|D5|D6|D7|D8|D9|DA|DB|DC|DD|DE|DF|E2|E3|E4|E5|E6|E7|E8|E9|EA|EB|EC|ED|EE|EF)/i.test(
-    normalizedLineEndings
-  );
+  const hasUtf8HexEscapes =
+    /=(?:C2|C3|C4|C5|C6|C7|C8|C9|CA|CB|CC|CD|CE|CF|D0|D1|D2|D3|D4|D5|D6|D7|D8|D9|DA|DB|DC|DD|DE|DF|E2|E3|E4|E5|E6|E7|E8|E9|EA|EB|EC|ED|EE|EF)/i.test(
+      normalizedLineEndings
+    );
 
   if (!hasSoftBreaks && !hasUtf8HexEscapes) {
     return normalizedLineEndings;
@@ -630,7 +267,7 @@ function decodeQuotedPrintableText(value) {
   return new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(bytes));
 }
 
-function normalizeThreadOrder(segments) {
+export function normalizeThreadOrder(segments: PlaintextSegment[]): PlaintextSegment[] {
   if (segments.length < 2) {
     return segments;
   }
@@ -683,9 +320,7 @@ function detectBoundaryLine(line, previousLine, nextLine) {
   ];
 
   if (
-    explicitPatterns.some((pattern) =>
-      boundaryCandidates.some((candidate) => pattern.test(candidate))
-    )
+    explicitPatterns.some((pattern) => boundaryCandidates.some((candidate) => pattern.test(candidate)))
   ) {
     return true;
   }
@@ -866,9 +501,7 @@ function extractSenderHint(boundaryLine, lines) {
       return normalizeSenderHint(estonianKontaktMatch[1].trim());
     }
 
-    const estonianGenericMatch = plain.match(
-      /^(.+?)\s+kirjutas\s+kuup[äa]eval\s+.+:\s*$/i
-    );
+    const estonianGenericMatch = plain.match(/^(.+?)\s+kirjutas\s+kuup[äa]eval\s+.+:\s*$/i);
     if (estonianGenericMatch) {
       return normalizeSenderHint(estonianGenericMatch[1].trim());
     }
@@ -877,7 +510,7 @@ function extractSenderHint(boundaryLine, lines) {
   return '';
 }
 
-function normalizeSenderHint(value) {
+export function normalizeSenderHint(value: unknown): string {
   return String(value || '')
     .replace(/<mailto:[^>]+>/gi, '')
     .replace(/\s{2,}/g, ' ')
@@ -945,10 +578,9 @@ function buildHintCandidates(boundaryLine, lines) {
   return Array.from(new Set(candidates));
 }
 
-function buildParticipantIdentity(email) {
+export function buildParticipantIdentity(email: EmailListItem | null | undefined): ParticipantIdentity {
   const isSentOrigin =
-    Boolean(email?.isThreadInjectedFromSent) ||
-    String(email?.folderKey || '').toLowerCase() === 'sent';
+    Boolean(email?.isThreadInjectedFromSent) || String(email?.folderKey || '').toLowerCase() === 'sent';
   const selfSource = isSentOrigin ? email?.from : email?.to;
   const otherSource = isSentOrigin ? email?.to : email?.from;
   return {
@@ -958,11 +590,15 @@ function buildParticipantIdentity(email) {
 }
 
 function tokenizeIdentity(value) {
-  const matches = String(value || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|[A-Z][A-Z0-9._-]{1,}/gi) || [];
+  const matches =
+    String(value || '').match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}|[A-Z][A-Z0-9._-]{1,}/gi) || [];
   return matches.map((entry) => entry.toLowerCase());
 }
 
-function inferSegmentRole(segment, identity) {
+export function inferSegmentRole(
+  segment: PlaintextSegment,
+  identity: ParticipantIdentity
+): 'self' | 'other' | 'unknown' {
   const hint = String(segment?.senderHint || '').toLowerCase();
   if (hint) {
     if (identity.selfTokens.some((token) => hint.includes(token))) return 'self';
@@ -976,14 +612,14 @@ function inferSegmentRole(segment, identity) {
   return 'unknown';
 }
 
-function formatHeaderValue(text) {
+export function decodeHeaderValue(text: unknown): string {
   const value = String(text || '');
   const textarea = document.createElement('textarea');
   textarea.innerHTML = value;
   return textarea.value;
 }
 
-function getAddressForActions(value) {
+export function getAddressForActions(value: unknown): string {
   const stringValue = String(value || '').trim();
   const match = stringValue.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   if (match) {
@@ -992,7 +628,7 @@ function getAddressForActions(value) {
   return stringValue;
 }
 
-function getSenderDisplayName(value) {
+export function getSenderDisplayName(value: unknown): string {
   const stringValue = normalizeSenderHint(value);
   if (!stringValue) {
     return '';
@@ -1011,5 +647,3 @@ function getSenderDisplayName(value) {
 
   return stringValue.replace(/^["']|["']$/g, '');
 }
-
-export default EmailContent;

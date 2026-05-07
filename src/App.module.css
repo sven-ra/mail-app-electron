@@ -18,6 +18,7 @@
 
 .mainLayout {
   display: grid;
+  /* Fallback columns; App applies persisted runtime width inline. */
   grid-template-columns: 220px 420px 12px minmax(0, 1fr);
   align-items: stretch;
   flex: 1;
@@ -61,7 +62,6 @@
   padding: 2px 4px;
   border-radius: 2px;
 
-
   &:hover {
     background-color: var(--color-bg-step-1);
   }
@@ -78,7 +78,6 @@
   gap: 12px;
 }
 
-
 .contentSection {
   position: relative;
   min-width: 0;
@@ -88,6 +87,18 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.settingsCloseButton {
+  width: fit-content;
+  text-align: left;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 2px;
+
+  &:hover {
+    background-color: var(--color-bg-step-1);
+  }
 }
 
 .columnResizer {

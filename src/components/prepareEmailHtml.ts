@@ -1,3 +1,5 @@
+import type { EmailAttachment } from '../types/mail';
+
 const TRIMMED_LABEL = 'Show trimmed content';
 
 const QUOTE_SELECTORS = [
@@ -9,7 +11,7 @@ const QUOTE_SELECTORS = [
   'div.moz-cite-prefix',
 ];
 
-export function prepareEmailHtml(html, attachments) {
+export function prepareEmailHtml(html: unknown, attachments: EmailAttachment[] | undefined): string {
   const safeHtml = typeof html === 'string' ? html : '';
   if (!safeHtml.trim()) {
     return '';
@@ -26,7 +28,10 @@ export function prepareEmailHtml(html, attachments) {
   return `<!DOCTYPE html>${doc.documentElement.outerHTML}`;
 }
 
-export function extractLatestReplyHtml(html, attachments) {
+export function extractLatestReplyHtml(
+  html: unknown,
+  attachments: EmailAttachment[] | undefined
+): string {
   const safeHtml = typeof html === 'string' ? html : '';
   if (!safeHtml.trim()) {
     return '';
@@ -43,7 +48,7 @@ export function extractLatestReplyHtml(html, attachments) {
   return doc.body.innerHTML.trim();
 }
 
-function removeQuotedHistory(doc) {
+function removeQuotedHistory(doc: Document): void {
   const quote = findQuoteContainer(doc);
   if (!quote) return;
 
@@ -68,7 +73,7 @@ const DROP_TAGS = new Set([
   'NOSCRIPT',
 ]);
 
-function sanitizeForInline(doc) {
+function sanitizeForInline(doc: Document): void {
   if (!doc.body) return;
 
   doc.body.querySelectorAll('*').forEach((el) => {
@@ -90,8 +95,8 @@ function sanitizeForInline(doc) {
   });
 }
 
-function buildCidMap(attachments) {
-  const map = new Map();
+function buildCidMap(attachments: EmailAttachment[] | undefined): Map<string, string> {
+  const map = new Map<string, string>();
   if (!Array.isArray(attachments)) return map;
 
   attachments.forEach((att) => {
@@ -109,7 +114,7 @@ function buildCidMap(attachments) {
   return map;
 }
 
-function rewriteCidImages(doc, cidMap) {
+function rewriteCidImages(doc: Document, cidMap: Map<string, string>): void {
   const images = doc.querySelectorAll('img[src^="cid:" i], img[src^="CID:"]');
   images.forEach((img) => {
     const src = img.getAttribute('src') || '';
@@ -134,7 +139,7 @@ function rewriteCidImages(doc, cidMap) {
   });
 }
 
-function collapseQuotedHistory(doc) {
+function collapseQuotedHistory(doc: Document): void {
   const target = findQuoteContainer(doc);
   if (!target) return;
   if (target.closest('details[data-quoted-history="true"]')) return;
@@ -156,7 +161,7 @@ function collapseQuotedHistory(doc) {
   }
 }
 
-function findQuoteContainer(doc) {
+function findQuoteContainer(doc: Document): Element | null {
   for (const selector of QUOTE_SELECTORS) {
     const found = doc.querySelector(selector);
     if (found && !isInsideExcluded(found)) {
@@ -173,11 +178,11 @@ function findQuoteContainer(doc) {
   return null;
 }
 
-function isInsideExcluded(element) {
+function isInsideExcluded(element: Element): boolean {
   return Boolean(element.closest('details[data-quoted-history="true"]'));
 }
 
-function findOutlookDivider(doc) {
+function findOutlookDivider(doc: Document): Element | null {
   const divs = doc.querySelectorAll('div[style]');
   for (const div of divs) {
     const style = (div.getAttribute('style') || '').toLowerCase();
@@ -188,7 +193,7 @@ function findOutlookDivider(doc) {
   return null;
 }
 
-function findFallbackBlockquote(doc) {
+function findFallbackBlockquote(doc: Document): Element | null {
   const blockquotes = Array.from(doc.querySelectorAll('blockquote'));
   if (!blockquotes.length) return null;
 
@@ -201,7 +206,7 @@ function findFallbackBlockquote(doc) {
   return blockquotes[0];
 }
 
-function injectThemedStyles(doc) {
+function injectThemedStyles(doc: Document): void {
   const head = doc.head || doc.getElementsByTagName('head')[0];
   if (!head) return;
 

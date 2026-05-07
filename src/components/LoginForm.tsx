@@ -1,7 +1,14 @@
 import React from 'react';
 import styles from './LoginForm.module.css';
+import type { MailboxConfig } from '../types/mail';
 
-function LoginForm({ config, onConfigChange, onConnect }) {
+type LoginFormProps = {
+  config: MailboxConfig;
+  onConfigChange: (field: keyof MailboxConfig, value: string) => void;
+  onConnect: () => void;
+};
+
+function LoginForm({ config, onConfigChange, onConnect }: LoginFormProps) {
   return (
     <section className={styles.form}>
       <label className={styles.field}>

@@ -5,6 +5,7 @@
   "main": "main.js",
   "scripts": {
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "start": "npm run build && electron .",
     "dev": "concurrently \"vite\" \"NODE_ENV=development electron .\"",
     "watch": "concurrently \"vite\" \"NODE_ENV=development electronmon .\"",
@@ -25,10 +26,14 @@
     "react-use": "^17.6.0"
   },
   "devDependencies": {
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.2.0",
     "concurrently": "^9.2.1",
     "electron": "^28.0.0",
     "electronmon": "^2.0.2",
+    "typescript": "^6.0.3",
     "vite": "^5.0.0"
   }
 }
