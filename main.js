@@ -389,9 +389,11 @@ ipcMain.handle('list-mailboxes', async (event, config) => {
 });
 
 // IPC: fetch folder headers (subject + date + uid)
-ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMap = {}) => {
+ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMap = {}, options = {}) => {
   const imap = await getImapConnection(config);
   const mailboxPath = getMailboxPath(folderKey, mailboxMap);
+  const limit = Math.max(1, Number(options.limit) || 50);
+  const beforeUid = Number(options.beforeUid) || null;
 
   return new Promise((resolve, reject) => {
     const emails = [];
@@ -399,32 +401,19 @@ ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMa
     let processedCount = 0;
     let fetchDone = false;
     let resolved = false;
+    let hasMore = false;
+    let total = 0;
 
     function checkDone() {
       if (resolved) return;
       if (fetchDone && processedCount === totalFetched) {
         resolved = true;
         imap.end();
-        resolve(emails);
+        resolve({ emails, hasMore, total });
       }
     }
 
-    imap.openBox(mailboxPath, true, (err, box) => {
-      if (err) {
-        imap.end();
-        return reject(new Error(`Failed to open ${mailboxPath}: ` + err.message));
-      }
-
-      const total = box.messages.total;
-      if (total === 0) {
-        imap.end();
-        return resolve([]);
-      }
-
-      const start = Math.max(1, total - 49);
-      const range = `${start}:${total}`;
-      const fetch = imap.seq.fetch(range, { bodies: '' });
-
+    function startFetch(fetch) {
       fetch.on('message', (msg, seqno) => {
         totalFetched++;
         let messageDone = false;
@@ -503,13 +492,101 @@ ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMa
         fetchDone = true;
         checkDone();
       });
+    }
+
+    imap.openBox(mailboxPath, true, (err, box) => {
+      if (err) {
+        imap.end();
+        return reject(new Error(`Failed to open ${mailboxPath}: ` + err.message));
+      }
+
+      total = box.messages.total;
+      if (total === 0) {
+        imap.end();
+        return resolve({ emails: [], hasMore: false, total });
+      }
 
       setTimeout(() => {
         if (!resolved) {
           resolved = true;
           imap.end();
-          resolve(emails);
+          resolve({ emails, hasMore, total });
         }
+      }, 15000);
+
+      if (beforeUid) {
+        const lastOlderUid = beforeUid - 1;
+        if (lastOlderUid < 1) {
+          resolved = true;
+          imap.end();
+          return resolve({ emails: [], hasMore: false, total });
+        }
+
+        imap.search([['UID', `1:${lastOlderUid}`]], (searchErr, uids) => {
+          if (searchErr) {
+            if (!resolved) {
+              resolved = true;
+              imap.end();
+              reject(new Error('Search error: ' + searchErr.message));
+            }
+            return;
+          }
+
+          const sortedUids = (uids || []).slice().sort((a, b) => Number(a) - Number(b));
+          const selectedUids = sortedUids.slice(-limit);
+          hasMore = sortedUids.length > selectedUids.length;
+
+          if (!selectedUids.length) {
+            resolved = true;
+            imap.end();
+            resolve({ emails: [], hasMore: false, total });
+            return;
+          }
+
+          startFetch(imap.fetch(selectedUids, { bodies: '' }));
+        });
+        return;
+      }
+
+      const start = Math.max(1, total - limit + 1);
+      const range = `${start}:${total}`;
+      hasMore = start > 1;
+      startFetch(imap.seq.fetch(range, { bodies: '' }));
+    });
+  });
+});
+
+ipcMain.handle('fetch-folder-unread-count', async (event, config, folderKey, mailboxMap = {}) => {
+  const imap = await getImapConnection(config);
+  const mailboxPath = getMailboxPath(folderKey, mailboxMap);
+
+  return new Promise((resolve, reject) => {
+    let resolved = false;
+
+    function finish(err, count) {
+      if (resolved) return;
+      resolved = true;
+      imap.end();
+      if (err) reject(err);
+      else resolve(count);
+    }
+
+    imap.openBox(mailboxPath, true, (err) => {
+      if (err) {
+        finish(new Error(`Failed to open ${mailboxPath}: ` + err.message));
+        return;
+      }
+
+      imap.search(['UNSEEN'], (searchErr, uids) => {
+        if (searchErr) {
+          finish(new Error('Search error: ' + searchErr.message));
+          return;
+        }
+        finish(null, (uids || []).length);
+      });
+
+      setTimeout(() => {
+        finish(new Error('Timeout fetching unread count'));
       }, 15000);
     });
   });

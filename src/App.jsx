@@ -13,6 +13,7 @@ const LAST_SELECTED_MAILBOX_ID_KEY = 'lastSelectedMailboxId';
 const LAST_SELECTED_FOLDER_KEY = 'lastSelectedFolder';
 const INBOX_WIDTH_STORAGE_KEY = 'inboxPanelWidth';
 const THEME_STORAGE_KEY = 'themeMode';
+const EMAIL_PAGE_SIZE = 50;
 const FOLDER_COUNT_KEYS = ['inbox', 'junk', 'drafts', 'bin'];
 const FOLDERS = [
   { key: 'inbox', label: 'INBOX' },
@@ -57,8 +58,15 @@ function groupEmailsByThread(emails) {
   }));
 }
 
-function getUnreadCount(emails) {
-  return emails.filter((email) => email.isUnread).length;
+function getFolderEmailResult(value) {
+  if (Array.isArray(value)) {
+    return { emails: value, hasMore: false, total: value.length };
+  }
+  return {
+    emails: value?.emails || [],
+    hasMore: Boolean(value?.hasMore),
+    total: Number(value?.total) || 0,
+  };
 }
 
 function App() {
@@ -87,6 +95,10 @@ function App() {
     return 420;
   });
   const [isResizingInbox, setIsResizingInbox] = useState(false);
+  const [inboxPagination, setInboxPagination] = useState({
+    hasMore: false,
+    isLoadingMore: false,
+  });
   const [themeMode, setThemeMode] = useState(() => {
     const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
     if (storedTheme === 'dark' || storedTheme === 'light') {
@@ -98,6 +110,9 @@ function App() {
   const resizeStartXRef = useRef(0);
   const resizeStartWidthRef = useRef(0);
   const resizeMaxWidthRef = useRef(0);
+  const selectedFolderRef = useRef({ mailboxId: null, folderKey: FOLDERS[0].key });
+  const isLoadingMoreRef = useRef(false);
+  const loadedEmailLimitRef = useRef(EMAIL_PAGE_SIZE);
   const threadGroups = useMemo(() => groupEmailsByThread(emails), [emails]);
   const validFolderKeys = useMemo(() => new Set(FOLDERS.map((folder) => folder.key)), []);
 
@@ -126,6 +141,10 @@ function App() {
     document.documentElement.setAttribute('data-theme', themeMode);
     localStorage.setItem(THEME_STORAGE_KEY, themeMode);
   }, [themeMode]);
+
+  useEffect(() => {
+    selectedFolderRef.current = { mailboxId: selectedMailboxId, folderKey: selectedFolder };
+  }, [selectedMailboxId, selectedFolder]);
 
   function handleToggleThemeMode() {
     setThemeMode((currentThemeMode) => (currentThemeMode === 'dark' ? 'light' : 'dark'));
@@ -201,15 +220,12 @@ function App() {
   async function refreshMailboxFolderCounts(mailbox, folderKeys = FOLDER_COUNT_KEYS) {
     const nextEntries = await Promise.all(
       folderKeys.map(async (folderKey) => {
-        const folderEmails = await window.electronAPI.fetchFolderEmails(
+        const unreadCount = await window.electronAPI.fetchFolderUnreadCount(
           mailbox,
           folderKey,
           mailbox.mailboxMap || {}
         );
-        if (folderKey === 'inbox') {
-          return [folderKey, getUnreadCount(folderEmails)];
-        }
-        return [folderKey, folderEmails.length];
+        return [folderKey, unreadCount];
       })
     );
 
@@ -262,6 +278,9 @@ function App() {
       setSelectedMailboxId(null);
       setEmails([]);
       setSelectedEmail(null);
+      setInboxPagination({ hasMore: false, isLoadingMore: false });
+      isLoadingMoreRef.current = false;
+      loadedEmailLimitRef.current = EMAIL_PAGE_SIZE;
       setFolderCountsByMailbox({});
       localStorage.removeItem(LAST_SELECTED_MAILBOX_ID_KEY);
       localStorage.removeItem(LAST_SELECTED_FOLDER_KEY);
@@ -293,21 +312,34 @@ function App() {
       setSelectedEmailUid(null);
     }
 
-    const folderEmails = await window.electronAPI.fetchFolderEmails(
+    const requestedLimit = resetSelection
+      ? EMAIL_PAGE_SIZE
+      : Math.max(EMAIL_PAGE_SIZE, loadedEmailLimitRef.current);
+    const folderResult = getFolderEmailResult(await window.electronAPI.fetchFolderEmails(
       mailbox,
       folderKey,
-      mailbox.mailboxMap || {}
-    );
+      mailbox.mailboxMap || {},
+      { limit: requestedLimit }
+    ));
+    const folderEmails = folderResult.emails;
     const sortedEmails = folderEmails
       .slice()
       .sort((a, b) => Number(b.uid || 0) - Number(a.uid || 0));
     setEmails(sortedEmails);
+    loadedEmailLimitRef.current = Math.max(EMAIL_PAGE_SIZE, sortedEmails.length);
+    isLoadingMoreRef.current = false;
+    setInboxPagination({ hasMore: folderResult.hasMore, isLoadingMore: false });
     if (FOLDER_COUNT_KEYS.includes(folderKey)) {
+      const unreadCount = await window.electronAPI.fetchFolderUnreadCount(
+        mailbox,
+        folderKey,
+        mailbox.mailboxMap || {}
+      );
       setFolderCountsByMailbox((current) => ({
         ...current,
         [mailbox.id]: {
           ...(current[mailbox.id] || {}),
-          [folderKey]: folderKey === 'inbox' ? getUnreadCount(sortedEmails) : sortedEmails.length,
+          [folderKey]: unreadCount,
         },
       }));
     }
@@ -328,6 +360,71 @@ function App() {
 
     if (showLoadedStatus) {
       setStatus(`Loaded ${folderEmails.length} emails from ${folderLabel}.`);
+    }
+  }
+
+  async function handleLoadMoreEmails() {
+    if (isLoadingMoreRef.current || !inboxPagination.hasMore) return;
+
+    const mailboxId = selectedMailboxId;
+    const folderKey = selectedFolder;
+    const mailbox = mailboxes.find((item) => item.id === mailboxId);
+    if (!mailbox) return;
+
+    const oldestUid = emails.reduce((oldest, email) => {
+      const uid = Number(email.uid);
+      if (!Number.isFinite(uid)) return oldest;
+      if (!oldest) return uid;
+      return Math.min(oldest, uid);
+    }, 0);
+
+    if (!oldestUid) {
+      setInboxPagination({ hasMore: false, isLoadingMore: false });
+      return;
+    }
+
+    isLoadingMoreRef.current = true;
+    setInboxPagination((current) => ({ ...current, isLoadingMore: true }));
+
+    try {
+      const folderResult = getFolderEmailResult(await window.electronAPI.fetchFolderEmails(
+        mailbox,
+        folderKey,
+        mailbox.mailboxMap || {},
+        { limit: EMAIL_PAGE_SIZE, beforeUid: oldestUid }
+      ));
+      const selectedFolderSnapshot = selectedFolderRef.current;
+      if (
+        selectedFolderSnapshot.mailboxId !== mailboxId ||
+        selectedFolderSnapshot.folderKey !== folderKey
+      ) {
+        isLoadingMoreRef.current = false;
+        return;
+      }
+
+      setEmails((currentEmails) => {
+        const emailsByUid = new Map(currentEmails.map((email) => [String(email.uid), email]));
+        folderResult.emails.forEach((email) => {
+          emailsByUid.set(String(email.uid), email);
+        });
+        const nextEmails = Array.from(emailsByUid.values()).sort(
+          (a, b) => Number(b.uid || 0) - Number(a.uid || 0)
+        );
+        loadedEmailLimitRef.current = Math.max(EMAIL_PAGE_SIZE, nextEmails.length);
+        return nextEmails;
+      });
+      setInboxPagination({ hasMore: folderResult.hasMore, isLoadingMore: false });
+      isLoadingMoreRef.current = false;
+    } catch (e) {
+      const selectedFolderSnapshot = selectedFolderRef.current;
+      if (
+        selectedFolderSnapshot.mailboxId === mailboxId &&
+        selectedFolderSnapshot.folderKey === folderKey
+      ) {
+        setStatus('Error: ' + e.message);
+        setInboxPagination((current) => ({ ...current, isLoadingMore: false }));
+        isLoadingMoreRef.current = false;
+      }
     }
   }
 
@@ -572,7 +669,7 @@ function App() {
                     const shouldShowFolderCount =
                       FOLDER_COUNT_KEYS.includes(folder.key) &&
                       Number.isFinite(folderCount) &&
-                      (folder.key !== 'inbox' || folderCount > 0);
+                      folderCount > 0;
                     return (
                       <li key={`${mailbox.id}:${folder.key}`}>
                         <button
@@ -599,6 +696,8 @@ function App() {
             threadGroups={threadGroups}
             selectedEmailUid={selectedEmailUid}
             onSelectEmail={handleSelectEmail}
+            onLoadMore={handleLoadMoreEmails}
+            isLoadingMore={inboxPagination.isLoadingMore}
           />
           <div
             role="separator"

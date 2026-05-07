@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
 import styles from './InboxPanel.module.css';
 
-function InboxPanel({ title, threadGroups, selectedEmailUid, onSelectEmail }) {
+function InboxPanel({
+  title,
+  threadGroups,
+  selectedEmailUid,
+  onSelectEmail,
+  onLoadMore,
+  isLoadingMore,
+}) {
   const [expandedThreadIds, setExpandedThreadIds] = useState(() => new Set());
 
   function toggleThread(threadId) {
@@ -71,8 +78,18 @@ function InboxPanel({ title, threadGroups, selectedEmailUid, onSelectEmail }) {
     );
   }
 
+  function handleScroll(event) {
+    if (!onLoadMore) return;
+
+    const element = event.currentTarget;
+    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    if (distanceFromBottom <= 24) {
+      onLoadMore();
+    }
+  }
+
   return (
-    <section className={styles.inboxSection}>
+    <section className={styles.inboxSection} onScroll={handleScroll}>
       <h2>{title}</h2>
       <ul className={styles.list}>
         {threadGroups.map((thread) => {
@@ -119,6 +136,11 @@ function InboxPanel({ title, threadGroups, selectedEmailUid, onSelectEmail }) {
           );
         })}
       </ul>
+      {isLoadingMore && (
+        <div className={styles.loadingMoreIndicator} aria-hidden="true">
+          <span />
+        </div>
+      )}
     </section>
   );
 }
