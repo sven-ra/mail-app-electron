@@ -23,6 +23,11 @@
   cursor: pointer;
 }
 
+.toolbarButton:disabled {
+  opacity: var(--text-opacity-step-4);
+  cursor: default;
+}
+
 .toolbarButtonActive {
   background: var(--color-bg);
   border-color: var(--color-fg);
@@ -48,4 +53,24 @@
   -webkit-user-select: text;
   -webkit-user-modify: read-write;
   white-space: pre-wrap;
+}
+
+.proseMirrorEditable strong {
+  font-weight: 700;
+}
+
+.proseMirrorEditable em {
+  font-style: italic;
+}
+
+.proseMirrorEditable s {
+  text-decoration: line-through;
+}
+
+.proseMirrorEditable u {
+  text-decoration: underline;
+}
+
+.proseMirrorEditable a {
+  text-decoration: underline;
 }
