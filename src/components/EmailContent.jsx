@@ -39,6 +39,7 @@ function EmailContent({ email }) {
     const node = messageAreaRef.current;
     if (!node) return;
     if (!email || email.loading || email.error) return;
+    if (showHtml) return;
 
     let active = true;
     const scrollToBottom = () => {
