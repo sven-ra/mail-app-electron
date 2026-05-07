@@ -1,5 +1,12 @@
 @import './reset.css';
-@import '@fontsource/ibm-plex-mono';
+
+@font-face {
+  font-family: 'GT Pressura Mono';
+  src: url('../webfonts/GT-Pressura/GT-Pressura-Mono-Text-Trial.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
 
 :root {
   --color-bg: #fff;
@@ -7,7 +14,7 @@
 }
 
 body {
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: 'GT Pressura Mono', monospace;
   font-size: 12px;
   color: var(--color-fg);
   background: var(--color-bg);
