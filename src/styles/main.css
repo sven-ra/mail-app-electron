@@ -11,6 +11,14 @@
 :root {
   --color-bg: #fff;
   --color-fg: #000;
+  --color-fg-step-1: rgba(0, 0, 0, 1);
+  --color-fg-step-2: rgba(0, 0, 0, 0.85);
+  --color-fg-step-3: rgba(0, 0, 0, 0.7);
+  --color-fg-step-4: rgba(0, 0, 0, 0.55);
+  --text-opacity-step-1: 1;
+  --text-opacity-step-2: 0.85;
+  --text-opacity-step-3: 0.7;
+  --text-opacity-step-4: 0.55;
 }
 
 body {
@@ -24,6 +32,14 @@ body {
   :root {
     --color-bg: #000;
     --color-fg: #fff;
+    --color-fg-step-1: rgba(255, 255, 255, 1);
+    --color-fg-step-2: rgba(255, 255, 255, 0.85);
+    --color-fg-step-3: rgba(255, 255, 255, 0.7);
+    --color-fg-step-4: rgba(255, 255, 255, 0.55);
+    --text-opacity-step-1: 1;
+    --text-opacity-step-2: 0.85;
+    --text-opacity-step-3: 0.7;
+    --text-opacity-step-4: 0.55;
   }
 
   *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
@@ -36,6 +52,14 @@ body {
 :root[data-theme='dark'] {
   --color-bg: #000;
   --color-fg: #fff;
+  --color-fg-step-1: rgba(255, 255, 255, 1);
+  --color-fg-step-2: rgba(255, 255, 255, 0.85);
+  --color-fg-step-3: rgba(255, 255, 255, 0.7);
+  --color-fg-step-4: rgba(255, 255, 255, 0.55);
+  --text-opacity-step-1: 1;
+  --text-opacity-step-2: 0.85;
+  --text-opacity-step-3: 0.7;
+  --text-opacity-step-4: 0.55;
 }
 
 :root[data-theme='dark'] *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
@@ -47,6 +71,14 @@ body {
 :root[data-theme='light'] {
   --color-bg: #fff;
   --color-fg: #000;
+  --color-fg-step-1: rgba(0, 0, 0, 1);
+  --color-fg-step-2: rgba(0, 0, 0, 0.85);
+  --color-fg-step-3: rgba(0, 0, 0, 0.7);
+  --color-fg-step-4: rgba(0, 0, 0, 0.55);
+  --text-opacity-step-1: 1;
+  --text-opacity-step-2: 0.85;
+  --text-opacity-step-3: 0.7;
+  --text-opacity-step-4: 0.55;
 }
 
 :root[data-theme='light'] *:not(canvas, iframe, img, svg, video, svg *, symbol *) {

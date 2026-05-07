@@ -188,6 +188,7 @@ function SenderDropdown({ label }) {
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content className={styles.senderMenuContent} sideOffset={4} align="start">
+            <DropdownMenu.Label className={styles.senderMenuLabel}>{address || label}</DropdownMenu.Label>
             <DropdownMenu.Item className={styles.senderMenuItem} onSelect={handleCopyAddress}>
               Copy address
             </DropdownMenu.Item>
@@ -289,7 +290,18 @@ function normalizeThreadOrder(segments) {
 
   const first = segments[0];
   const last = segments[segments.length - 1];
-  const likelyNewestFirst = (!first.hasBoundaryMarker && last.hasBoundaryMarker) || first.quoteDepth < last.quoteDepth;
+  const midpoint = Math.floor(segments.length / 2);
+  const firstHalf = segments.slice(0, midpoint || 1);
+  const lastHalf = segments.slice(midpoint || 1);
+  const firstHalfAverageDepth =
+    firstHalf.reduce((sum, segment) => sum + Number(segment.quoteDepth || 0), 0) / firstHalf.length;
+  const lastHalfAverageDepth = lastHalf.length
+    ? lastHalf.reduce((sum, segment) => sum + Number(segment.quoteDepth || 0), 0) / lastHalf.length
+    : firstHalfAverageDepth;
+  const likelyNewestFirst =
+    (!first.hasBoundaryMarker && last.hasBoundaryMarker) ||
+    first.quoteDepth < last.quoteDepth ||
+    lastHalfAverageDepth > firstHalfAverageDepth;
 
   if (likelyNewestFirst) {
     return [...segments].reverse();
@@ -306,11 +318,14 @@ function detectBoundaryLine(line, previousLine, nextLine) {
 
   const boundaryPatterns = [
     /^on .+wrote:$/i,
+    /^.+wrote:$/i,
     /^from:\s+.+$/i,
     /^sent:\s+.+$/i,
     /^date:\s+.+$/i,
     /^to:\s+.+$/i,
     /^subject:\s+.+$/i,
+    /^kontakt .+ kirjutas kuup[äa]eval .+:\s*$/i,
+    /^.+ kirjutas kuup[äa]eval .+:\s*$/i,
     /^-+\s*original message\s*-+$/i,
     /^begin forwarded message:$/i,
   ];
@@ -393,6 +408,16 @@ function extractSenderHint(lines) {
     const onWroteMatch = plain.match(/^on .+,\s*(.+?)\s+wrote:$/i);
     if (onWroteMatch) {
       return onWroteMatch[1].trim();
+    }
+
+    const genericWroteMatch = plain.match(/^(.+?)\s+wrote:$/i);
+    if (genericWroteMatch) {
+      return genericWroteMatch[1].trim();
+    }
+
+    const estonianWroteMatch = plain.match(/^kontakt\s+(.+?)\s+\(.+?\)\s+kirjutas kuup[äa]eval .+:\s*$/i);
+    if (estonianWroteMatch) {
+      return estonianWroteMatch[1].trim();
     }
   }
 
@@ -483,11 +508,14 @@ function shouldRenderThreadedPlaintext(email) {
 
   const threadMarkers = [
     /\bon\s.+\bwrote:\s*$/im,
+    /^\s*.+\s+wrote:\s*$/im,
     /^from:\s+.+$/im,
     /^sent:\s+.+$/im,
     /^date:\s+.+$/im,
     /^to:\s+.+$/im,
     /^subject:\s+.+$/im,
+    /^kontakt .+ kirjutas kuup[äa]eval .+:\s*$/im,
+    /^.+ kirjutas kuup[äa]eval .+:\s*$/im,
     /^-+\s*original message\s*-+$/im,
     /^begin forwarded message:$/im,
   ];

@@ -96,6 +96,14 @@
   padding: 4px;
 }
 
+.senderMenuLabel {
+  padding: 4px 8px;
+  color: var(--color-fg);
+  opacity: var(--text-opacity-step-3);
+  user-select: text;
+  overflow-wrap: anywhere;
+}
+
 .senderMenuItem {
   padding: 4px 8px;
   cursor: pointer;
