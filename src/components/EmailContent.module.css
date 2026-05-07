@@ -19,65 +19,113 @@
   min-height: 0;
   flex: 1;
   overflow: auto;
-  /* padding: 8px;
-  border: 1px solid var(--color-fg); */
 }
 
 .htmlFrame {
   display: block;
   width: 100%;
-  min-height: 70vh;
   border: 0;
-  background: var(--color-bg);
-  position: relative;
-  z-index: 0;
-  pointer-events: none;
+  background: transparent;
+  color-scheme: light dark;
 }
 
 .threadList {
-  display: grid;
-  gap: 10px;
-}
-
-.messageRow {
   display: flex;
-  justify-content: flex-start;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
 }
 
-.messageRowSelf {
-  justify-content: flex-end;
-}
-
-.messageRowOther {
-  justify-content: flex-start;
-}
-
-.messageRowUnknown {
-  justify-content: flex-start;
-}
-
-.messageBubble {
-  width: min(92%, 840px);
+.threadBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
   border: 1px solid var(--color-fg);
-  border-radius: 10px;
-  padding: 10px 12px;
   background: var(--color-bg);
+  width: 100%;
+  min-width: 0;
 }
 
-.messageBubbleSelf {
-  width: min(86%, 700px);
+.threadBlockSender {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-fg);
 }
 
-.messageBubbleOther {
-  width: min(92%, 840px);
+.threadBlockSenderFallback {
+  border: 1px solid var(--color-fg);
+  background: var(--color-bg);
+  padding: 2px 6px;
 }
 
-.messageBubbleUnknown {
-  width: min(92%, 840px);
+.threadBlockDate {
+  opacity: var(--text-opacity-step-3, 0.7);
+}
+
+.threadBlockBody {
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.threadBlockHtml {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.threadBlockHtml img,
+.threadBlockHtml video {
+  max-width: 100%;
+  height: auto;
+}
+
+.threadBlockHtml table {
+  max-width: 100%;
+}
+
+.threadBlockHtml blockquote {
+  margin: 8px 0;
+  padding-left: 10px;
+  border-left: 2px solid var(--color-fg);
+  opacity: var(--text-opacity-step-3, 0.85);
+}
+
+.threadBlockHtml a {
+  color: inherit;
+  text-decoration: underline;
+}
+
+.threadBlockHtml pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.threadBlockImages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.threadBlockImage {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--color-fg);
+}
+
+.threadInlineImage {
+  display: inline-block;
+  max-width: 100%;
+  height: auto;
+  vertical-align: middle;
 }
 
 .messageSender {
-  margin-bottom: 6px;
   overflow-wrap: anywhere;
 }
 
@@ -108,12 +156,6 @@
   padding: 4px 8px;
   cursor: pointer;
   user-select: none;
-}
-
-.messageText {
-  min-height: 1.3em;
-  white-space: pre-wrap;
-  word-break: break-word;
 }
 
 .editorDock {

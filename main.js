@@ -270,6 +270,25 @@ function normalizeReferences(value) {
     .filter(Boolean);
 }
 
+function stripAngleBrackets(value) {
+  if (!value) return '';
+  return String(value).trim().replace(/^<|>$/g, '');
+}
+
+function serializeAttachments(attachments) {
+  if (!Array.isArray(attachments)) return [];
+  return attachments.map((att) => ({
+    contentId: stripAngleBrackets(att.contentId),
+    cid: stripAngleBrackets(att.cid),
+    contentType: att.contentType || 'application/octet-stream',
+    filename: att.filename || '',
+    related: att.related === true,
+    contentDisposition: att.contentDisposition || '',
+    size: Number.isFinite(att.size) ? att.size : (att.content ? att.content.length : 0),
+    dataBase64: att.content ? att.content.toString('base64') : '',
+  }));
+}
+
 function getPreviewLines(text) {
   if (!text) return [];
   return String(text)
@@ -633,6 +652,7 @@ ipcMain.handle('fetch-folder-email', async (event, config, folderKey, uid, mailb
                 to: parsed.to ? parsed.to.text : '',
                 text: parsed.text || '',
                 html: parsed.html || '',
+                attachments: serializeAttachments(parsed.attachments),
               });
             })
             .catch((e) => finish(new Error('Parse error: ' + e.message)));
