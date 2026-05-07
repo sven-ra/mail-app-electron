@@ -12,6 +12,7 @@ const LAST_SELECTED_MAILBOX_ID_KEY = 'lastSelectedMailboxId';
 const LAST_SELECTED_FOLDER_KEY = 'lastSelectedFolder';
 const INBOX_WIDTH_STORAGE_KEY = 'inboxPanelWidth';
 const THEME_STORAGE_KEY = 'themeMode';
+const FOLDER_COUNT_KEYS = ['junk', 'drafts', 'bin'];
 const FOLDERS = [
   { key: 'inbox', label: 'INBOX' },
   { key: 'drafts', label: 'drafts' },
@@ -71,6 +72,7 @@ function App() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [selectedFolder, setSelectedFolder] = useState(FOLDERS[0].key);
   const [currentPage, setCurrentPage] = useState('inbox');
+  const [folderCountsByMailbox, setFolderCountsByMailbox] = useState({});
   const [selectedSettingsMailboxId, setSelectedSettingsMailboxId] = useState(null);
   const [inboxWidth, setInboxWidth] = useState(() => {
     const value = Number(localStorage.getItem(INBOX_WIDTH_STORAGE_KEY));
@@ -167,6 +169,9 @@ function App() {
         setSelectedMailboxId(initialMailbox.id);
         setSelectedFolder(initialFolder);
         setLoggedIn(true);
+        await Promise.all(
+          resolvedMailboxes.map((mailbox) => refreshMailboxFolderCounts(mailbox).catch(() => undefined))
+        );
         await loadFolder(initialMailbox.id, initialFolder, resolvedMailboxes);
       } catch (e) {
         setStatus('Error loading config: ' + e.message);
@@ -182,6 +187,27 @@ function App() {
   async function persistMailboxes(nextMailboxes) {
     setMailboxes(nextMailboxes);
     await window.electronAPI.saveMailboxConfigs(nextMailboxes);
+  }
+
+  async function refreshMailboxFolderCounts(mailbox, folderKeys = FOLDER_COUNT_KEYS) {
+    const nextEntries = await Promise.all(
+      folderKeys.map(async (folderKey) => {
+        const folderEmails = await window.electronAPI.fetchFolderEmails(
+          mailbox,
+          folderKey,
+          mailbox.mailboxMap || {}
+        );
+        return [folderKey, folderEmails.length];
+      })
+    );
+
+    setFolderCountsByMailbox((current) => ({
+      ...current,
+      [mailbox.id]: {
+        ...(current[mailbox.id] || {}),
+        ...Object.fromEntries(nextEntries),
+      },
+    }));
   }
 
   async function handleAddMailbox(loginConfig) {
@@ -205,6 +231,7 @@ function App() {
       await persistMailboxes(nextMailboxes);
       setSelectedMailboxId(nextMailbox.id);
       setSelectedFolder(FOLDERS[0].key);
+      await refreshMailboxFolderCounts(nextMailbox);
       await loadFolder(nextMailbox.id, FOLDERS[0].key, nextMailboxes);
       setLoggedIn(true);
       setCurrentPage('inbox');
@@ -223,6 +250,7 @@ function App() {
       setSelectedMailboxId(null);
       setEmails([]);
       setSelectedEmail(null);
+      setFolderCountsByMailbox({});
       localStorage.removeItem(LAST_SELECTED_MAILBOX_ID_KEY);
       localStorage.removeItem(LAST_SELECTED_FOLDER_KEY);
       mailboxIds.forEach((mailboxId) => {
@@ -262,6 +290,15 @@ function App() {
       .slice()
       .sort((a, b) => Number(b.uid || 0) - Number(a.uid || 0));
     setEmails(sortedEmails);
+    if (FOLDER_COUNT_KEYS.includes(folderKey)) {
+      setFolderCountsByMailbox((current) => ({
+        ...current,
+        [mailbox.id]: {
+          ...(current[mailbox.id] || {}),
+          [folderKey]: sortedEmails.length,
+        },
+      }));
+    }
 
     if (restoreSelectionFromStorage) {
       const storageKey = getFolderUidStorageKey(mailbox.id, folderKey);
@@ -477,7 +514,13 @@ function App() {
                           }`}
                           onClick={() => handleSelectFolder(mailbox.id, folder.key)}
                         >
-                          {folder.label}
+                          <span className={styles.folderButtonContent}>
+                            <span>{folder.label}</span>
+                            {FOLDER_COUNT_KEYS.includes(folder.key) &&
+                              Number.isFinite(folderCountsByMailbox[mailbox.id]?.[folder.key]) && (
+                                <span>{folderCountsByMailbox[mailbox.id][folder.key]}</span>
+                              )}
+                          </span>
                         </button>
                       </li>
                     );

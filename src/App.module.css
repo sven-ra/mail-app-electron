@@ -63,6 +63,13 @@
   cursor: pointer;
 }
 
+.folderButtonContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .folderButtonActive {
   background: var(--color-bg);
   border-color: var(--color-fg);
