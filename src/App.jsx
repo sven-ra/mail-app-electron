@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useEvent } from 'react-use';
+import * as AlertDialog from '@radix-ui/react-alert-dialog';
 import LoginForm from './components/LoginForm.jsx';
 import InboxPanel from './components/InboxPanel.jsx';
 import EmailContent from './components/EmailContent.jsx';
@@ -444,6 +445,57 @@ function App() {
     handleSelectSettingsMailbox(mailbox);
   }
 
+  async function handleRemoveMailbox(mailboxId) {
+    const nextMailboxes = mailboxes.filter((mailbox) => mailbox.id !== mailboxId);
+    await persistMailboxes(nextMailboxes);
+
+    setFolderCountsByMailbox((current) => {
+      const next = { ...current };
+      delete next[mailboxId];
+      return next;
+    });
+
+    FOLDERS.forEach((folder) => {
+      localStorage.removeItem(getFolderUidStorageKey(mailboxId, folder.key));
+    });
+
+    const removedSelectedInbox = selectedMailboxId === mailboxId;
+    const nextSelectedSettingsMailbox = nextMailboxes[0] || null;
+    setSelectedSettingsMailboxId(nextSelectedSettingsMailbox ? nextSelectedSettingsMailbox.id : null);
+    setConfig({
+      host: nextSelectedSettingsMailbox?.host || '',
+      username: nextSelectedSettingsMailbox?.username || '',
+      password: nextSelectedSettingsMailbox?.password || '',
+    });
+
+    if (!removedSelectedInbox) {
+      setStatus('Mailbox removed.');
+      return;
+    }
+
+    if (!nextSelectedSettingsMailbox) {
+      setSelectedMailboxId(null);
+      setEmails([]);
+      setSelectedEmail(null);
+      setSelectedEmailUid(null);
+      localStorage.removeItem(LAST_SELECTED_MAILBOX_ID_KEY);
+      localStorage.removeItem(LAST_SELECTED_FOLDER_KEY);
+      setStatus('Mailbox removed.');
+      return;
+    }
+
+    const nextMailboxId = nextSelectedSettingsMailbox.id;
+    const nextFolderKey = validFolderKeys.has(selectedFolder) ? selectedFolder : FOLDERS[0].key;
+    setSelectedMailboxId(nextMailboxId);
+    localStorage.setItem(LAST_SELECTED_MAILBOX_ID_KEY, nextMailboxId);
+    localStorage.setItem(LAST_SELECTED_FOLDER_KEY, nextFolderKey);
+    if (currentPage === 'inbox') {
+      await handleSelectFolder(nextMailboxId, nextFolderKey);
+    } else {
+      setStatus('Mailbox removed.');
+    }
+  }
+
   function handleStartInboxResize(event) {
     event.preventDefault();
     const handle = event.currentTarget;
@@ -587,6 +639,40 @@ function App() {
                   >
                     {mailbox.username}
                   </button>
+                  <AlertDialog.Root>
+                    <AlertDialog.Trigger asChild>
+                      <button type="button" className={styles.removeInboxButton}>
+                        Remove inbox
+                      </button>
+                    </AlertDialog.Trigger>
+                    <AlertDialog.Portal>
+                      <AlertDialog.Overlay className={styles.alertDialogOverlay} />
+                      <AlertDialog.Content className={styles.alertDialogContent}>
+                        <AlertDialog.Title className={styles.alertDialogTitle}>
+                          Remove inbox?
+                        </AlertDialog.Title>
+                        <AlertDialog.Description className={styles.alertDialogDescription}>
+                          {mailbox.username}
+                        </AlertDialog.Description>
+                        <div className={styles.alertDialogActions}>
+                          <AlertDialog.Cancel asChild>
+                            <button type="button" className={styles.alertDialogCancelButton}>
+                              Cancel
+                            </button>
+                          </AlertDialog.Cancel>
+                          <AlertDialog.Action asChild>
+                            <button
+                              type="button"
+                              className={styles.alertDialogActionButton}
+                              onClick={() => handleRemoveMailbox(mailbox.id)}
+                            >
+                              Remove
+                            </button>
+                          </AlertDialog.Action>
+                        </div>
+                      </AlertDialog.Content>
+                    </AlertDialog.Portal>
+                  </AlertDialog.Root>
                 </li>
               ))}
             </ul>

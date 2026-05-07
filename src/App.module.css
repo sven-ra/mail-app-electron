@@ -139,3 +139,48 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+.removeInboxButton {
+  border: 1px solid var(--color-fg);
+  padding: 6px 8px;
+}
+
+.alertDialogOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 30;
+}
+
+.alertDialogContent {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  width: min(420px, calc(100vw - 24px));
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--color-fg);
+  background: var(--color-bg);
+  padding: 12px;
+  z-index: 31;
+}
+
+.alertDialogTitle {
+  margin: 0 0 8px;
+}
+
+.alertDialogDescription {
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.alertDialogActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.alertDialogCancelButton,
+.alertDialogActionButton {
+  border: 1px solid var(--color-fg);
+  padding: 6px 8px;
+}
