@@ -11,6 +11,10 @@
 :root {
   --color-bg: #fff;
   --color-fg: #000;
+  --color-bg-step-1: rgba(0, 0, 0, 0.02);
+  --color-bg-step-2: rgba(0, 0, 0, 0.04);
+  --color-bg-step-3: rgba(0, 0, 0, 0.07);
+  --color-bg-step-4: rgba(0, 0, 0, 0.1);
   --color-fg-step-1: rgba(0, 0, 0, 1);
   --color-fg-step-2: rgba(0, 0, 0, 0.85);
   --color-fg-step-3: rgba(0, 0, 0, 0.7);
@@ -30,8 +34,12 @@ body {
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-bg: #000;
+    --color-bg: #171717;
     --color-fg: #fff;
+    --color-bg-step-1: rgba(255, 255, 255, 0.08);
+    --color-bg-step-2: rgba(255, 255, 255, 0.13);
+    --color-bg-step-3: rgba(255, 255, 255, 0.18);
+    --color-bg-step-4: rgba(255, 255, 255, 0.24);
     --color-fg-step-1: rgba(255, 255, 255, 1);
     --color-fg-step-2: rgba(255, 255, 255, 0.85);
     --color-fg-step-3: rgba(255, 255, 255, 0.7);
@@ -43,15 +51,17 @@ body {
   }
 
   *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
-    color: var(--color-fg) !important;
-    background: var(--color-bg) !important;
-    border-color: var(--color-fg) !important;
+    color: var(--color-fg);
   }
 }
 
 :root[data-theme='dark'] {
   --color-bg: #000;
   --color-fg: #fff;
+  --color-bg-step-1: rgba(255, 255, 255, 0.08);
+  --color-bg-step-2: rgba(255, 255, 255, 0.13);
+  --color-bg-step-3: rgba(255, 255, 255, 0.18);
+  --color-bg-step-4: rgba(255, 255, 255, 0.24);
   --color-fg-step-1: rgba(255, 255, 255, 1);
   --color-fg-step-2: rgba(255, 255, 255, 0.85);
   --color-fg-step-3: rgba(255, 255, 255, 0.7);
@@ -63,14 +73,16 @@ body {
 }
 
 :root[data-theme='dark'] *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
-  color: var(--color-fg) !important;
-  background: var(--color-bg) !important;
-  border-color: var(--color-fg) !important;
+  color: var(--color-fg);
 }
 
 :root[data-theme='light'] {
   --color-bg: #fff;
   --color-fg: #000;
+  --color-bg-step-1: rgba(0, 0, 0, 0.02);
+  --color-bg-step-2: rgba(0, 0, 0, 0.04);
+  --color-bg-step-3: rgba(0, 0, 0, 0.07);
+  --color-bg-step-4: rgba(0, 0, 0, 0.1);
   --color-fg-step-1: rgba(0, 0, 0, 1);
   --color-fg-step-2: rgba(0, 0, 0, 0.85);
   --color-fg-step-3: rgba(0, 0, 0, 0.7);
@@ -82,7 +94,5 @@ body {
 }
 
 :root[data-theme='light'] *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
-  color: var(--color-fg) !important;
-  background: var(--color-bg) !important;
-  border-color: var(--color-fg) !important;
+  color: var(--color-fg);
 }
