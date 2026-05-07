@@ -52,7 +52,19 @@ function InboxPanel({ title, threadGroups, selectedEmailUid, onSelectEmail }) {
         onClick={() => onSelectEmail(email)}
       >
         <div className={styles.rowDate}>{formatRowDate(email.dateRaw || email.date)}</div>
-        <div className={styles.rowSender}>{email.from || ''}</div>
+        <div className={styles.rowSender}>
+          {email.isUnread && (
+            <svg
+              className={styles.unreadDotIcon}
+              viewBox="0 0 8 8"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <circle cx="4" cy="4" r="4" fill="#0a66ff" />
+            </svg>
+          )}
+          <span>{email.from || ''}</span>
+        </div>
         <div className={styles.rowSubject}>{email.subject}</div>
         <div className={styles.rowPreview}>{previewText}</div>
       </button>

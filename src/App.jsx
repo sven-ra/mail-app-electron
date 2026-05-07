@@ -12,7 +12,7 @@ const LAST_SELECTED_MAILBOX_ID_KEY = 'lastSelectedMailboxId';
 const LAST_SELECTED_FOLDER_KEY = 'lastSelectedFolder';
 const INBOX_WIDTH_STORAGE_KEY = 'inboxPanelWidth';
 const THEME_STORAGE_KEY = 'themeMode';
-const FOLDER_COUNT_KEYS = ['junk', 'drafts', 'bin'];
+const FOLDER_COUNT_KEYS = ['inbox', 'junk', 'drafts', 'bin'];
 const FOLDERS = [
   { key: 'inbox', label: 'INBOX' },
   { key: 'drafts', label: 'drafts' },
@@ -54,6 +54,10 @@ function groupEmailsByThread(emails) {
       .slice()
       .sort((a, b) => Number(b.uid || 0) - Number(a.uid || 0)),
   }));
+}
+
+function getUnreadCount(emails) {
+  return emails.filter((email) => email.isUnread).length;
 }
 
 function App() {
@@ -197,6 +201,9 @@ function App() {
           folderKey,
           mailbox.mailboxMap || {}
         );
+        if (folderKey === 'inbox') {
+          return [folderKey, getUnreadCount(folderEmails)];
+        }
         return [folderKey, folderEmails.length];
       })
     );
@@ -295,7 +302,7 @@ function App() {
         ...current,
         [mailbox.id]: {
           ...(current[mailbox.id] || {}),
-          [folderKey]: sortedEmails.length,
+          [folderKey]: folderKey === 'inbox' ? getUnreadCount(sortedEmails) : sortedEmails.length,
         },
       }));
     }
@@ -505,6 +512,11 @@ function App() {
                   {FOLDERS.map((folder) => {
                     const isActive =
                       selectedMailboxId === mailbox.id && selectedFolder === folder.key;
+                    const folderCount = folderCountsByMailbox[mailbox.id]?.[folder.key];
+                    const shouldShowFolderCount =
+                      FOLDER_COUNT_KEYS.includes(folder.key) &&
+                      Number.isFinite(folderCount) &&
+                      (folder.key !== 'inbox' || folderCount > 0);
                     return (
                       <li key={`${mailbox.id}:${folder.key}`}>
                         <button
@@ -516,10 +528,7 @@ function App() {
                         >
                           <span className={styles.folderButtonContent}>
                             <span>{folder.label}</span>
-                            {FOLDER_COUNT_KEYS.includes(folder.key) &&
-                              Number.isFinite(folderCountsByMailbox[mailbox.id]?.[folder.key]) && (
-                                <span>{folderCountsByMailbox[mailbox.id][folder.key]}</span>
-                              )}
+                            {shouldShowFolderCount && <span>{folderCount}</span>}
                           </span>
                         </button>
                       </li>

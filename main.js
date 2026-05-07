@@ -430,9 +430,11 @@ ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMa
         let messageDone = false;
         let chunks = [];
         let uid = null;
+        let flags = [];
 
         msg.once('attributes', (attrs) => {
           uid = attrs.uid;
+          flags = attrs.flags || [];
         });
 
         async function processMessage() {
@@ -468,13 +470,14 @@ ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMa
               date,
               dateRaw,
               from,
+              isUnread: !flags.includes('\\Seen'),
               previewLines,
               messageId,
               inReplyTo,
               references,
             });
           } catch (e) {
-            emails.push({ uid, subject: '(parse error)', date: 'No date' });
+            emails.push({ uid, subject: '(parse error)', date: 'No date', isUnread: !flags.includes('\\Seen') });
           }
           processedCount++;
           checkDone();
