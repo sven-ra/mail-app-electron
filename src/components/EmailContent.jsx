@@ -30,11 +30,11 @@ function EmailContent({ email }) {
     <article className={styles.content}>
       <h3>{email.subject}</h3>
       <div className={styles.meta}>
-        <b>From:</b> {escapeHtml(email.from)}
+        <b>From:</b> {formatHeaderValue(email.from)}
         <br />
-        <b>To:</b> {escapeHtml(email.to)}
+        <b>To:</b> {formatHeaderValue(email.to)}
         <br />
-        <b>Date:</b> {escapeHtml(email.date)}
+        <b>Date:</b> {formatHeaderValue(email.date)}
         <br />
         <hr />
       </div>
@@ -147,10 +147,11 @@ function extractQuoteDepth(line) {
   return { depth, content: value.slice(index) };
 }
 
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text || '';
-  return div.innerHTML;
+function formatHeaderValue(text) {
+  const value = String(text || '');
+  const textarea = document.createElement('textarea');
+  textarea.innerHTML = value;
+  return textarea.value;
 }
 
 function getHtmlBody(html) {
