@@ -50,7 +50,8 @@ function InboxPanel({
         return !trimmedLine.startsWith('>') && !trimmedLine.startsWith('&gt;');
       })
       .join(' ');
-    const isActive = selectedEmailUid && String(email.uid) === String(selectedEmailUid);
+    const rowEmailUid = email.selectionUid || String(email.uid);
+    const isActive = selectedEmailUid && rowEmailUid === String(selectedEmailUid);
 
     return (
       <button
@@ -102,7 +103,9 @@ function InboxPanel({
           const isExpanded = expandedThreadIds.has(thread.id);
           const remainingEmails = isExpanded ? thread.emails.slice(1) : [];
           const isThreadActive = thread.emails.some(
-            (email) => selectedEmailUid && String(email.uid) === String(selectedEmailUid)
+            (email) =>
+              selectedEmailUid &&
+              (email.selectionUid || String(email.uid)) === String(selectedEmailUid)
           );
 
           return (
@@ -126,7 +129,10 @@ function InboxPanel({
               {isExpanded && (
                 <ul className={styles.threadList}>
                   {remainingEmails.map((email) => (
-                    <li key={email.uid || `${email.date}-${email.subject}`} className={styles.item}>
+                    <li
+                      key={email.selectionUid || email.uid || `${email.date}-${email.subject}`}
+                      className={styles.item}
+                    >
                       {renderEmailRow(email)}
                     </li>
                   ))}

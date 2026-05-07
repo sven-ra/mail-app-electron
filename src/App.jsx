@@ -8,6 +8,7 @@ import './styles/main.css';
 import styles from './App.module.css';
 
 const EMPTY_CONFIG = { host: '', username: '', password: '' };
+const ALL_MAILBOXES_ID = '__all_mailboxes__';
 const LAST_SELECTED_EMAIL_UID_PREFIX = 'lastSelectedEmailUid:';
 const LAST_SELECTED_MAILBOX_ID_KEY = 'lastSelectedMailboxId';
 const LAST_SELECTED_FOLDER_KEY = 'lastSelectedFolder';
@@ -69,6 +70,16 @@ function getFolderEmailResult(value) {
   };
 }
 
+function withMailboxEmailMeta(email, mailboxId, folderKey) {
+  const uidPart = email?.uid != null ? String(email.uid) : 'no-uid';
+  return {
+    ...email,
+    mailboxId,
+    folderKey,
+    selectionUid: `${mailboxId}:${folderKey}:${uidPart}`,
+  };
+}
+
 function App() {
   const FOLDERS_WIDTH = 220;
   const RESIZER_WIDTH = 12;
@@ -115,6 +126,15 @@ function App() {
   const loadedEmailLimitRef = useRef(EMAIL_PAGE_SIZE);
   const threadGroups = useMemo(() => groupEmailsByThread(emails), [emails]);
   const validFolderKeys = useMemo(() => new Set(FOLDERS.map((folder) => folder.key)), []);
+  const allFolderCount = useMemo(() => {
+    const allMailboxesFolderKey = FOLDERS[0].key;
+    if (!FOLDER_COUNT_KEYS.includes(allMailboxesFolderKey)) return 0;
+    return mailboxes.reduce((total, mailbox) => {
+      const count = folderCountsByMailbox[mailbox.id]?.[allMailboxesFolderKey];
+      if (!Number.isFinite(count)) return total;
+      return total + count;
+    }, 0);
+  }, [folderCountsByMailbox, mailboxes]);
 
   useEffect(
     () => () => {
@@ -301,11 +321,9 @@ function App() {
     const { resetSelection = true, restoreSelectionFromStorage = true, showLoadedStatus = true } =
       options;
     const sourceMailboxes = mailboxOverride || mailboxes;
-    const mailbox = sourceMailboxes.find((item) => item.id === mailboxId);
-    if (!mailbox) {
-      throw new Error('Mailbox not found');
-    }
-    const folderLabel = FOLDERS.find((folder) => folder.key === folderKey)?.label || folderKey;
+    const requestedFolderKey = mailboxId === ALL_MAILBOXES_ID ? FOLDERS[0].key : folderKey;
+    const folderLabel =
+      FOLDERS.find((folder) => folder.key === requestedFolderKey)?.label || requestedFolderKey;
     setStatus(`Loading ${folderLabel}...`);
     if (resetSelection) {
       setSelectedEmail(null);
@@ -315,41 +333,78 @@ function App() {
     const requestedLimit = resetSelection
       ? EMAIL_PAGE_SIZE
       : Math.max(EMAIL_PAGE_SIZE, loadedEmailLimitRef.current);
-    const folderResult = getFolderEmailResult(await window.electronAPI.fetchFolderEmails(
-      mailbox,
-      folderKey,
-      mailbox.mailboxMap || {},
-      { limit: requestedLimit }
-    ));
-    const folderEmails = folderResult.emails;
-    const sortedEmails = folderEmails
-      .slice()
-      .sort((a, b) => Number(b.uid || 0) - Number(a.uid || 0));
+    const isAllMailboxes = mailboxId === ALL_MAILBOXES_ID;
+    const mailbox = sourceMailboxes.find((item) => item.id === mailboxId);
+    if (!isAllMailboxes && !mailbox) {
+      throw new Error('Mailbox not found');
+    }
+
+    let sortedEmails = [];
+    let hasMore = false;
+
+    if (isAllMailboxes) {
+      const allResults = await Promise.all(
+        sourceMailboxes.map(async (item) => {
+          const folderResult = getFolderEmailResult(await window.electronAPI.fetchFolderEmails(
+            item,
+            requestedFolderKey,
+            item.mailboxMap || {},
+            { limit: requestedLimit }
+          ));
+          return {
+            mailboxId: item.id,
+            hasMore: folderResult.hasMore,
+            emails: folderResult.emails.map((email) =>
+              withMailboxEmailMeta(email, item.id, requestedFolderKey)
+            ),
+          };
+        })
+      );
+      sortedEmails = allResults
+        .flatMap((result) => result.emails)
+        .sort((a, b) => Number(b.uid || 0) - Number(a.uid || 0));
+      hasMore = false;
+    } else {
+      const folderResult = getFolderEmailResult(await window.electronAPI.fetchFolderEmails(
+        mailbox,
+        requestedFolderKey,
+        mailbox.mailboxMap || {},
+        { limit: requestedLimit }
+      ));
+      sortedEmails = folderResult.emails
+        .map((email) => withMailboxEmailMeta(email, mailbox.id, requestedFolderKey))
+        .slice()
+        .sort((a, b) => Number(b.uid || 0) - Number(a.uid || 0));
+      hasMore = folderResult.hasMore;
+      if (FOLDER_COUNT_KEYS.includes(requestedFolderKey)) {
+        const unreadCount = await window.electronAPI.fetchFolderUnreadCount(
+          mailbox,
+          requestedFolderKey,
+          mailbox.mailboxMap || {}
+        );
+        setFolderCountsByMailbox((current) => ({
+          ...current,
+          [mailbox.id]: {
+            ...(current[mailbox.id] || {}),
+            [requestedFolderKey]: unreadCount,
+          },
+        }));
+      }
+    }
+
     setEmails(sortedEmails);
     loadedEmailLimitRef.current = Math.max(EMAIL_PAGE_SIZE, sortedEmails.length);
     isLoadingMoreRef.current = false;
-    setInboxPagination({ hasMore: folderResult.hasMore, isLoadingMore: false });
-    if (FOLDER_COUNT_KEYS.includes(folderKey)) {
-      const unreadCount = await window.electronAPI.fetchFolderUnreadCount(
-        mailbox,
-        folderKey,
-        mailbox.mailboxMap || {}
-      );
-      setFolderCountsByMailbox((current) => ({
-        ...current,
-        [mailbox.id]: {
-          ...(current[mailbox.id] || {}),
-          [folderKey]: unreadCount,
-        },
-      }));
-    }
+    setInboxPagination({ hasMore, isLoadingMore: false });
 
-    if (restoreSelectionFromStorage) {
-      const storageKey = getFolderUidStorageKey(mailbox.id, folderKey);
+    if (restoreSelectionFromStorage && !isAllMailboxes) {
+      const storageKey = getFolderUidStorageKey(mailbox.id, requestedFolderKey);
       const savedUid = localStorage.getItem(storageKey);
 
       if (savedUid) {
-        const matchingEmail = sortedEmails.find((email) => String(email.uid) === savedUid);
+        const matchingEmail = sortedEmails.find(
+          (email) => email.mailboxId === mailbox.id && String(email.uid) === savedUid
+        );
         if (matchingEmail) {
           await handleSelectEmail(matchingEmail, mailbox, folderKey);
           return;
@@ -359,11 +414,12 @@ function App() {
     }
 
     if (showLoadedStatus) {
-      setStatus(`Loaded ${folderEmails.length} emails from ${folderLabel}.`);
+      setStatus(`Loaded ${sortedEmails.length} emails from ${folderLabel}.`);
     }
   }
 
   async function handleLoadMoreEmails() {
+    if (selectedMailboxId === ALL_MAILBOXES_ID) return;
     if (isLoadingMoreRef.current || !inboxPagination.hasMore) return;
 
     const mailboxId = selectedMailboxId;
@@ -443,6 +499,22 @@ function App() {
     }
   }
 
+  async function handleSelectAllMailboxes() {
+    if (!mailboxes.length) return;
+    const inboxFolderKey = FOLDERS[0].key;
+    setSelectedMailboxId(ALL_MAILBOXES_ID);
+    setSelectedFolder(inboxFolderKey);
+    localStorage.setItem(LAST_SELECTED_FOLDER_KEY, inboxFolderKey);
+
+    try {
+      await loadFolder(ALL_MAILBOXES_ID, inboxFolderKey);
+    } catch (e) {
+      setEmails([]);
+      setSelectedEmail(null);
+      setStatus('Error: ' + e.message);
+    }
+  }
+
   useEffect(() => {
     if (!loggedIn || currentPage !== 'inbox' || !selectedMailboxId || !selectedFolder) {
       return undefined;
@@ -464,8 +536,8 @@ function App() {
   }, [loggedIn, currentPage, selectedMailboxId, selectedFolder, mailboxes]);
 
   async function handleSelectEmail(email, mailboxOverride, folderKeyOverride) {
-    const mailbox =
-      mailboxOverride || mailboxes.find((item) => item.id === selectedMailboxId) || null;
+    const mailboxId = email.mailboxId || selectedMailboxId;
+    const mailbox = mailboxOverride || mailboxes.find((item) => item.id === mailboxId) || null;
     if (!mailbox) {
       setSelectedEmail({ error: 'Error: mailbox is not selected.' });
       return;
@@ -479,11 +551,11 @@ function App() {
     }
 
     setStatus('Fetching email content...');
-    setSelectedEmailUid(String(email.uid));
+    setSelectedEmailUid(email.selectionUid || String(email.uid));
     setSelectedEmail({ loading: true });
 
     try {
-      const folderKey = folderKeyOverride || selectedFolder;
+      const folderKey = folderKeyOverride || email.folderKey || selectedFolder;
       const content = await window.electronAPI.fetchFolderEmail(
         mailbox,
         folderKey,
@@ -658,6 +730,20 @@ function App() {
           }}
         >
           <section className={styles.foldersSection}>
+            <div className={styles.mailboxGroup}>
+              <button
+                type="button"
+                className={`${styles.folderButton} ${
+                  selectedMailboxId === ALL_MAILBOXES_ID ? styles.folderButtonActive : ''
+                }`}
+                onClick={handleSelectAllMailboxes}
+              >
+                <span className={styles.folderButtonContent}>
+                  <span>all mailboxes</span>
+                  {allFolderCount > 0 && <span>{allFolderCount}</span>}
+                </span>
+              </button>
+            </div>
             {mailboxes.map((mailbox) => (
               <div key={mailbox.id} className={styles.mailboxGroup}>
                 <h3 className={styles.mailboxTitle}>{mailbox.username}</h3>
