@@ -19,7 +19,7 @@ type FetchFolderEmailsResponse = {
 
 type OpenSettingsUnsubscribe = () => void;
 
-interface ElectronApi {
+export interface ElectronApi {
   getConfig: () => Promise<MailboxConfig>;
   saveConfig: (config: MailboxConfig) => Promise<boolean>;
   getMailboxConfigs: () => Promise<MailboxConfig[]>;
@@ -53,6 +53,7 @@ interface ElectronApi {
   ) => Promise<boolean>;
   onOpenSettings: (callback: () => void) => OpenSettingsUnsubscribe;
   setUnreadBadgeCount: (count: number) => Promise<boolean>;
+  openExternalUrl: (url: string) => Promise<boolean>;
 }
 
 declare global {
@@ -60,5 +61,3 @@ declare global {
     electronAPI?: ElectronApi;
   }
 }
-
-export {};

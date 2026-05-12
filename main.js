@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, safeStorage, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage, Menu, shell } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const Imap = require('imap');
@@ -175,6 +175,32 @@ function migrateLegacyPlainTextConfigs() {
   }
 }
 
+function isHttpHttpsMailtoUrl(urlString) {
+  if (typeof urlString !== 'string' || !urlString.trim()) return false;
+  try {
+    const u = new URL(urlString.trim());
+    return u.protocol === 'http:' || u.protocol === 'https:' || u.protocol === 'mailto:';
+  } catch {
+    return false;
+  }
+}
+
+function shouldOpenExternalInsteadOfNavigating(currentUrl, navigationUrl) {
+  if (!isHttpHttpsMailtoUrl(navigationUrl)) return false;
+  try {
+    const next = new URL(navigationUrl);
+    if (next.protocol === 'mailto:') return true;
+    const cur = new URL(currentUrl);
+    if (cur.protocol === 'file:') return next.protocol === 'http:' || next.protocol === 'https:';
+    if (cur.protocol === 'http:' || cur.protocol === 'https:') {
+      return next.origin !== cur.origin;
+    }
+    return false;
+  } catch {
+    return isHttpHttpsMailtoUrl(navigationUrl);
+  }
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1000,
@@ -184,6 +210,31 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (isHttpHttpsMailtoUrl(url)) {
+      void shell.openExternal(url);
+    }
+    return { action: 'deny' };
+  });
+
+  // `will-navigate` is main-frame only. HTML mail uses an iframe; subframe navigations
+  // must be handled with `will-frame-navigate` or links load inside the app.
+  mainWindow.webContents.on('will-frame-navigate', (event) => {
+    const navigationUrl = event.url;
+    if (!isHttpHttpsMailtoUrl(navigationUrl)) return;
+
+    if (!event.isMainFrame) {
+      event.preventDefault();
+      void shell.openExternal(navigationUrl);
+      return;
+    }
+
+    const currentUrl = mainWindow.webContents.getURL();
+    if (!shouldOpenExternalInsteadOfNavigating(currentUrl, navigationUrl)) return;
+    event.preventDefault();
+    void shell.openExternal(navigationUrl);
   });
 
   if (process.env.NODE_ENV === 'development') {
@@ -259,6 +310,13 @@ ipcMain.handle('set-unread-badge-count', (event, rawCount) => {
   } catch {
     return false;
   }
+});
+
+ipcMain.handle('open-external-url', async (event, rawUrl) => {
+  const url = typeof rawUrl === 'string' ? rawUrl.trim() : '';
+  if (!isHttpHttpsMailtoUrl(url)) return false;
+  await shell.openExternal(url);
+  return true;
 });
 
 // Persistent IMAP connection pool: keyed by host|username so each mailbox

@@ -9,6 +9,7 @@ import {
   inferSegmentRole,
   splitTextByCidMarkers,
 } from '../../mail/plaintextThread';
+import { interceptMailLinkActivation } from '../../mail/openEmailLinkExternally';
 import styles from './styles.module.css';
 import type { CidAttachmentEntry, LoadedEmailContent, PlaintextSegment } from '../../types/mail';
 
@@ -101,7 +102,12 @@ function PlaintextThread({ segments, email }: PlaintextThreadProps) {
               {showSentTag ? <span className={styles.sentTag}>found in sent</span> : null}
             </header>
             {showHtmlBody ? (
-              <div className={styles.threadBlockHtml} dangerouslySetInnerHTML={{ __html: latestReplyHtml }} />
+              <div
+                className={styles.threadBlockHtml}
+                dangerouslySetInnerHTML={{ __html: latestReplyHtml }}
+                onClickCapture={(e) => interceptMailLinkActivation(e.nativeEvent)}
+                onAuxClickCapture={(e) => interceptMailLinkActivation(e.nativeEvent)}
+              />
             ) : (
               <div className={styles.threadBlockBody}>{renderTextWithCidImages(segment.text, cidMap)}</div>
             )}

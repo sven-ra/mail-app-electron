@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { interceptMailLinkActivation } from '../../mail/openEmailLinkExternally';
 import styles from './styles.module.css';
 
 type HtmlEmailFrameProps = {
@@ -8,12 +9,17 @@ type HtmlEmailFrameProps = {
 function HtmlEmailFrame({ html }: HtmlEmailFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const observerRef = useRef<ResizeObserver | null>(null);
+  const linkCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect();
         observerRef.current = null;
+      }
+      if (linkCleanupRef.current) {
+        linkCleanupRef.current();
+        linkCleanupRef.current = null;
       }
     };
   }, []);
@@ -54,6 +60,19 @@ function HtmlEmailFrame({ html }: HtmlEmailFrameProps) {
       observerRef.current = new ResizeObserver(() => syncIframeHeight());
       observerRef.current.observe(doc.body);
     }
+
+    if (linkCleanupRef.current) {
+      linkCleanupRef.current();
+      linkCleanupRef.current = null;
+    }
+    const onClick = (e: MouseEvent) => interceptMailLinkActivation(e);
+    const onAuxClick = (e: MouseEvent) => interceptMailLinkActivation(e);
+    doc.addEventListener('click', onClick, true);
+    doc.addEventListener('auxclick', onAuxClick, true);
+    linkCleanupRef.current = () => {
+      doc.removeEventListener('click', onClick, true);
+      doc.removeEventListener('auxclick', onAuxClick, true);
+    };
   }
 
   return (

@@ -24,4 +24,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
     };
   },
   setUnreadBadgeCount: (count) => ipcRenderer.invoke('set-unread-badge-count', count),
+  openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
 });
