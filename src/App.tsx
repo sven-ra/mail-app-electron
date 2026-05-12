@@ -5,6 +5,7 @@ import InboxPanel from './components/inbox-panel';
 import EmailContentView from './components/email-content-view';
 import MailboxFolderSidebar from './components/mailbox-folder-sidebar';
 import SettingsScreen from './components/settings-screen';
+import ColumnResizer from './components/column-resizer';
 import './styles/main.css';
 import styles from './App.module.css';
 import {
@@ -1036,13 +1037,7 @@ function App() {
             onDeleteEmail={handleDeleteEmail}
             onArchiveEmail={handleArchiveEmail}
           />
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            aria-label="Resize list column"
-            className={styles.columnResizer}
-            onPointerDown={handleStartInboxResize}
-          />
+          <ColumnResizer isResizing={isResizingInbox} onPointerDown={handleStartInboxResize} />
           <section className={styles.contentSection}>
             <EmailContentView
               email={selectedEmail}
