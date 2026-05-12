@@ -38,7 +38,7 @@ function MailboxFolderSidebar({
           onClick={onSelectAllMailboxes}
         >
           <span className={styles.folderButtonContent}>
-            <span>all mailboxes</span>
+            <span>all inboxes</span>
             {allFolderCount > 0 && <span>{allFolderCount}</span>}
           </span>
         </button>

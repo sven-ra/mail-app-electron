@@ -1,6 +1,12 @@
 import { useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { FOLDERS, LAST_SELECTED_FOLDER_KEY, LAST_SELECTED_MAILBOX_ID_KEY, mailboxToFormConfig } from '../mail/constants';
+import {
+  ALL_MAILBOXES_ID,
+  FOLDERS,
+  LAST_SELECTED_FOLDER_KEY,
+  LAST_SELECTED_MAILBOX_ID_KEY,
+  mailboxToFormConfig,
+} from '../mail/constants';
 import { getMailboxId } from '../mail/threading';
 import { mailApi } from '../services/mailApi';
 import type { FolderKey, MailboxConfig } from '../types/mail';
@@ -94,11 +100,13 @@ export function useMailboxBootstrap({
 
         const savedMailboxId = localStorage.getItem(LAST_SELECTED_MAILBOX_ID_KEY);
         const savedFolder = localStorage.getItem(LAST_SELECTED_FOLDER_KEY);
-        const initialMailbox =
-          resolvedMailboxes.find((mailbox) => mailbox.id === savedMailboxId) || resolvedMailboxes[0];
         const initialFolder = (validFolderKeys.has(savedFolder || '') ? savedFolder : FOLDERS[0].key) as FolderKey;
+        const mailboxIdForLoad =
+          savedMailboxId === ALL_MAILBOXES_ID
+            ? ALL_MAILBOXES_ID
+            : (resolvedMailboxes.find((mailbox) => mailbox.id === savedMailboxId) || resolvedMailboxes[0]).id;
 
-        latestActions.setSelectedMailboxId(initialMailbox.id);
+        latestActions.setSelectedMailboxId(mailboxIdForLoad);
         latestActions.setSelectedFolder(initialFolder);
         latestActions.setLoggedIn(true);
 
@@ -108,7 +116,7 @@ export function useMailboxBootstrap({
           )
         );
 
-        await latestActions.loadFolder(initialMailbox.id, initialFolder, resolvedMailboxes);
+        await latestActions.loadFolder(mailboxIdForLoad, initialFolder, resolvedMailboxes);
       } catch (error) {
         if (!active) return;
         latestActions.setStatus('Error loading config: ' + (error as Error).message);

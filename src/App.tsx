@@ -533,15 +533,15 @@ function App() {
     }
   }
 
-  async function handleSelectAllMailboxes(): Promise<void> {
+  async function handleSelectAllMailboxes(folderKey: FolderKey = FOLDERS[0].key): Promise<void> {
     if (!mailboxes.length) return;
-    const inboxFolderKey = FOLDERS[0].key;
     setSelectedMailboxId(ALL_MAILBOXES_ID);
-    setSelectedFolder(inboxFolderKey);
-    localStorage.setItem(LAST_SELECTED_FOLDER_KEY, inboxFolderKey);
+    setSelectedFolder(folderKey);
+    localStorage.setItem(LAST_SELECTED_MAILBOX_ID_KEY, ALL_MAILBOXES_ID);
+    localStorage.setItem(LAST_SELECTED_FOLDER_KEY, folderKey);
 
     try {
-      await loadFolder(ALL_MAILBOXES_ID, inboxFolderKey);
+      await loadFolder(ALL_MAILBOXES_ID, folderKey);
     } catch (error) {
       setEmails([]);
       setSelectedEmail(null);
@@ -784,12 +784,16 @@ function App() {
       if (mailboxes.length) {
         const savedMailboxId = localStorage.getItem(LAST_SELECTED_MAILBOX_ID_KEY);
         const savedFolder = localStorage.getItem(LAST_SELECTED_FOLDER_KEY);
-        const fallbackMailbox =
-          mailboxes.find((mailbox) => mailbox.id === savedMailboxId) || mailboxes[0];
         const fallbackFolder = (validFolderKeys.has((savedFolder || '') as FolderKey)
           ? savedFolder
           : FOLDERS[0].key) as FolderKey;
-        await handleSelectFolder(fallbackMailbox.id, fallbackFolder);
+        if (savedMailboxId === ALL_MAILBOXES_ID) {
+          await handleSelectFolder(ALL_MAILBOXES_ID, fallbackFolder);
+        } else {
+          const fallbackMailbox =
+            mailboxes.find((mailbox) => mailbox.id === savedMailboxId) || mailboxes[0];
+          await handleSelectFolder(fallbackMailbox.id, fallbackFolder);
+        }
       }
     } catch (error) {
       setStatus('Error: ' + (error as Error).message);

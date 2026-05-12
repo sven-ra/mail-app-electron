@@ -36,7 +36,7 @@
 ## Folder Navigation And Counts
 - [ ] Open each folder (`INBOX`, `drafts`, `sent`, `junk`, `bin`, `archive`) for one mailbox.
 - [ ] Confirm unread counters still render for counted folders.
-- [ ] Open `all mailboxes` and confirm aggregated list renders.
+- [ ] Open `all inboxes` and confirm aggregated list renders.
 
 ## Email List And Selection
 - [ ] Click thread rows and nested emails, verify active selection highlight.
