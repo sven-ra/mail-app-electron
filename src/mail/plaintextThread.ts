@@ -651,5 +651,15 @@ export function getSenderDisplayName(
     return localPart;
   }
 
+  const nameThenBareEmail = stringValue.match(
+    /^(.+?)\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,})\s*$/i
+  );
+  if (nameThenBareEmail && nameThenBareEmail[1] && nameThenBareEmail[2]) {
+    const namePart = nameThenBareEmail[1].trim().replace(/^["']|["']$/g, '');
+    if (namePart && !namePart.includes('@')) {
+      return namePart;
+    }
+  }
+
   return stringValue.replace(/^["']|["']$/g, '');
 }

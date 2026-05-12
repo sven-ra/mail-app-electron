@@ -1,6 +1,10 @@
 import React from 'react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import { getAddressForActions, getSenderDisplayName } from '../../mail/plaintextThread';
+import {
+  decodeHeaderValue,
+  getAddressForActions,
+  getSenderDisplayName,
+} from '../../mail/plaintextThread';
 import styles from './styles.module.css';
 
 type SenderDropdownProps = {
@@ -8,8 +12,9 @@ type SenderDropdownProps = {
 };
 
 function SenderDropdown({ label }: SenderDropdownProps) {
-  const address = getAddressForActions(label);
-  const displayName = getSenderDisplayName(label);
+  const decoded = decodeHeaderValue(label);
+  const address = getAddressForActions(decoded);
+  const displayName = getSenderDisplayName(decoded, { bareEmailDisplay: 'full' });
 
   async function handleCopyAddress() {
     if (!address) {

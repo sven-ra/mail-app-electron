@@ -93,10 +93,12 @@ function PlaintextThread({ segments, email }: PlaintextThreadProps) {
             <header className={styles.threadBlockSender}>
               {segment.senderHint ? (
                 <SenderDropdown label={segment.senderHint} />
+              ) : role === 'self' ? (
+                <span className={styles.threadBlockSenderFallback}>You</span>
+              ) : email?.from ? (
+                <SenderDropdown label={email.from} />
               ) : (
-                <span className={styles.threadBlockSenderFallback}>
-                  {role === 'self' ? 'You' : email?.from || 'Unknown sender'}
-                </span>
+                <span className={styles.threadBlockSenderFallback}>Unknown sender</span>
               )}
               {segment.dateHint ? <span className={styles.threadBlockDate}>{segment.dateHint}</span> : null}
               {showSentTag ? <span className={styles.sentTag}>found in sent</span> : null}
