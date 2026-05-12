@@ -266,16 +266,28 @@ function App() {
     mailbox: MailboxConfig,
     folderKeys: FolderKey[] = FOLDER_COUNT_KEYS
   ): Promise<void> {
-    const nextEntries = await Promise.all(
+    const settled = await Promise.allSettled(
       folderKeys.map(async (folderKey) => {
         const unreadCount = await mailApi.fetchFolderUnreadCount(
           mailbox,
           folderKey,
           mailbox.mailboxMap || {}
         );
-        return [folderKey, unreadCount];
+        return [folderKey, unreadCount] as const;
       })
     );
+
+    const nextEntries: [FolderKey, number][] = [];
+    for (let i = 0; i < settled.length; i += 1) {
+      const result = settled[i];
+      if (result.status !== 'fulfilled') continue;
+      const [folderKey, unreadCount] = result.value;
+      if (Number.isFinite(unreadCount)) {
+        nextEntries.push([folderKey, unreadCount]);
+      }
+    }
+
+    if (!nextEntries.length) return;
 
     setFolderCountsByMailbox((current) => ({
       ...current,
