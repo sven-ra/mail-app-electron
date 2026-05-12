@@ -122,6 +122,11 @@ function App() {
   }, [folderCountsByMailbox, mailboxes]);
 
   useEffect(() => {
+    const count = loggedIn ? Math.max(0, Math.floor(allFolderCount)) : 0;
+    void mailApi.setUnreadBadgeCount(count);
+  }, [allFolderCount, loggedIn]);
+
+  useEffect(() => {
     selectedFolderRef.current = { mailboxId: selectedMailboxId, folderKey: selectedFolder };
   }, [selectedMailboxId, selectedFolder]);
 

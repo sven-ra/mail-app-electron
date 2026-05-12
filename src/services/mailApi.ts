@@ -95,4 +95,9 @@ export const mailApi = {
     if (!api || typeof api.onOpenSettings !== 'function') return undefined;
     return api.onOpenSettings(handler);
   },
+  setUnreadBadgeCount(count: number): Promise<void> {
+    const api = window.electronAPI;
+    if (!api || typeof api.setUnreadBadgeCount !== 'function') return Promise.resolve();
+    return api.setUnreadBadgeCount(count).then(() => undefined);
+  },
 };

@@ -234,6 +234,16 @@ ipcMain.handle('clear-config', () => {
   return true;
 });
 
+ipcMain.handle('set-unread-badge-count', (event, rawCount) => {
+  const n = Number(rawCount);
+  const count = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+  try {
+    return app.setBadgeCount(count);
+  } catch {
+    return false;
+  }
+});
+
 // Helper: connect to IMAP (auto-detect TLS)
 async function getImapConnection(config) {
   const makeConn = (useTls) => new Promise((resolve, reject) => {

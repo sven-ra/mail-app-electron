@@ -52,6 +52,7 @@ interface ElectronApi {
     targetFolderKey: string
   ) => Promise<boolean>;
   onOpenSettings: (callback: () => void) => OpenSettingsUnsubscribe;
+  setUnreadBadgeCount: (count: number) => Promise<boolean>;
 }
 
 declare global {
