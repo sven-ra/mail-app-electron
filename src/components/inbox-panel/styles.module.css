@@ -3,6 +3,10 @@
   min-height: 0;
   overflow: auto;
   padding: 8px;
+
+  & h2 {
+    margin-bottom: 0.4rem;
+  }
 }
 
 .list {
@@ -14,7 +18,7 @@
 .threadItem {
   border-top: 1px solid var(--color-fg-step-5);
   margin-bottom: 8px;
-  padding: 8px 10px;
+  padding: 8px 2px;
 }
 
 .threadItemActive {

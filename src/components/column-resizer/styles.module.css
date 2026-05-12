@@ -1,6 +1,6 @@
 .root {
   position: relative;
-  width: 8px;
+  width: 6px;
   min-height: 0;
   cursor: col-resize;
   touch-action: none;
@@ -13,7 +13,7 @@
     top: 0;
     left: 50%;
     transform: translateX(-50%);
-    background: var(--color-fg-step-4);
+    background: var(--color-fg-step-5);
   }
 }
 

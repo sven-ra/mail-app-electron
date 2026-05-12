@@ -50,10 +50,6 @@ body {
     --text-opacity-step-3: 0.7;
     --text-opacity-step-4: 0.55;
   }
-
-  *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
-    color: var(--color-fg);
-  }
 }
 
 :root[data-theme='dark'] {
@@ -73,12 +69,4 @@ body {
   --text-opacity-step-2: 0.85;
   --text-opacity-step-3: 0.7;
   --text-opacity-step-4: 0.55;
-}
-
-:root[data-theme='dark'] *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
-  color: var(--color-fg);
-}
-
-:root[data-theme='light'] *:not(canvas, iframe, img, svg, video, svg *, symbol *) {
-  color: var(--color-fg);
 }

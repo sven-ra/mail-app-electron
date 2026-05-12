@@ -62,18 +62,6 @@
   margin-bottom: 8px;
 }
 
-.toolbarButton {
-  padding: 6px 10px;
-  border: 1px solid var(--color-fg);
-  background: var(--color-bg);
-  cursor: pointer;
-}
-
-.toolbarButton:disabled {
-  opacity: var(--text-opacity-step-4);
-  cursor: default;
-}
-
 .toolbarButtonActive {
   background: var(--color-bg);
   border-color: var(--color-fg);

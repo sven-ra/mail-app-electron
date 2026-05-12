@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef } from 'react';
+import Button from '../button';
 import styles from './styles.module.css';
 import { prepareEmailHtml } from '../prepareEmailHtml';
 import HtmlEmailFrame from '../html-email-frame';
@@ -127,21 +128,21 @@ function EmailContentView({
   return (
     <div className={styles.wrap}>
       <div className={styles.toolbar}>
-        <button type="button" className={styles.toolbarButton} onClick={onReply} disabled={toolbarDisabled}>
+        <Button onClick={onReply} disabled={toolbarDisabled}>
           Reply
-        </button>
-        <button type="button" className={styles.toolbarButton} onClick={onReplyAll} disabled={toolbarDisabled}>
+        </Button>
+        <Button onClick={onReplyAll} disabled={toolbarDisabled}>
           Reply to all
-        </button>
-        <button type="button" className={styles.toolbarButton} onClick={onForward} disabled={toolbarDisabled}>
+        </Button>
+        <Button onClick={onForward} disabled={toolbarDisabled}>
           Forward
-        </button>
-        <button type="button" className={styles.toolbarButton} onClick={onArchive} disabled={moveDisabled}>
+        </Button>
+        <Button onClick={onArchive} disabled={moveDisabled}>
           Archive
-        </button>
-        <button type="button" className={styles.toolbarButton} onClick={onDelete} disabled={moveDisabled}>
+        </Button>
+        <Button onClick={onDelete} disabled={moveDisabled}>
           Delete
-        </button>
+        </Button>
       </div>
       <div className={styles.subjectRow}>
         <h3>{contentEmail.subject}</h3>

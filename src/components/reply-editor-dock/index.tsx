@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { EditorContent, useEditor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
+import Button from '../button';
 import styles from './styles.module.css';
 
 export type ComposeField = 'to' | 'cc' | 'subject';
@@ -124,9 +125,7 @@ function ReplyEditorDock({
           {attachmentItems.map((item) => (
             <li key={item.id} className={styles.attachmentRow}>
               <span className={styles.attachmentName}>{item.name}</span>
-              <button type="button" className={styles.toolbarButton} onClick={() => onRemoveAttachment(item.id)}>
-                Remove
-              </button>
+              <Button onClick={() => onRemoveAttachment(item.id)}>Remove</Button>
             </li>
           ))}
         </ul>
@@ -140,81 +139,67 @@ function ReplyEditorDock({
           multiple
           onChange={handleFileInputChange}
         />
-        <button
-          type="button"
-          className={styles.toolbarButton}
-          onClick={() => fileInputRef.current?.click()}
-          disabled={!editor}
-        >
+        <Button onClick={() => fileInputRef.current?.click()} disabled={!editor}>
           Attach
-        </button>
-        <button
-          type="button"
-          className={`${styles.toolbarButton} ${editor?.isActive('bold') ? styles.toolbarButtonActive : ''}`}
+        </Button>
+        <Button
+          className={editor?.isActive('bold') ? styles.toolbarButtonActive : ''}
           onClick={() => editor?.chain().focus().toggleBold().run()}
           disabled={!editor}
         >
           Bold
-        </button>
-        <button
-          type="button"
-          className={`${styles.toolbarButton} ${editor?.isActive('italic') ? styles.toolbarButtonActive : ''}`}
+        </Button>
+        <Button
+          className={editor?.isActive('italic') ? styles.toolbarButtonActive : ''}
           onClick={() => editor?.chain().focus().toggleItalic().run()}
           disabled={!editor}
         >
           Italic
-        </button>
-        <button
-          type="button"
-          className={`${styles.toolbarButton} ${editor?.isActive('underline') ? styles.toolbarButtonActive : ''}`}
+        </Button>
+        <Button
+          className={editor?.isActive('underline') ? styles.toolbarButtonActive : ''}
           onClick={() => editor?.chain().focus().toggleUnderline().run()}
           disabled={!editor}
         >
           Underline
-        </button>
-        <button
-          type="button"
-          className={`${styles.toolbarButton} ${editor?.isActive('strike') ? styles.toolbarButtonActive : ''}`}
+        </Button>
+        <Button
+          className={editor?.isActive('strike') ? styles.toolbarButtonActive : ''}
           onClick={() => editor?.chain().focus().toggleStrike().run()}
           disabled={!editor}
         >
           Strike
-        </button>
-        <button
-          type="button"
-          className={`${styles.toolbarButton} ${editor?.isActive('bulletList') ? styles.toolbarButtonActive : ''}`}
+        </Button>
+        <Button
+          className={editor?.isActive('bulletList') ? styles.toolbarButtonActive : ''}
           onClick={() => editor?.chain().focus().toggleBulletList().run()}
           disabled={!editor}
         >
           Bullet List
-        </button>
-        <button
-          type="button"
-          className={`${styles.toolbarButton} ${editor?.isActive('orderedList') ? styles.toolbarButtonActive : ''}`}
+        </Button>
+        <Button
+          className={editor?.isActive('orderedList') ? styles.toolbarButtonActive : ''}
           onClick={() => editor?.chain().focus().toggleOrderedList().run()}
           disabled={!editor}
         >
           Numbered List
-        </button>
-        <button
-          type="button"
-          className={`${styles.toolbarButton} ${editor?.isActive('link') ? styles.toolbarButtonActive : ''}`}
+        </Button>
+        <Button
+          className={editor?.isActive('link') ? styles.toolbarButtonActive : ''}
           onClick={handleSetLink}
           disabled={!editor}
         >
           Link
-        </button>
-        <button
-          type="button"
-          className={styles.toolbarButton}
+        </Button>
+        <Button
           onClick={() => editor?.chain().focus().extendMarkRange('link').unsetLink().run()}
           disabled={!editor || !editor.isActive('link')}
         >
           Unlink
-        </button>
-        <button type="button" className={styles.toolbarButton} onClick={handleSendClick} disabled={!editor || sendDisabled}>
+        </Button>
+        <Button onClick={handleSendClick} disabled={!editor || sendDisabled}>
           Send
-        </button>
+        </Button>
       </div>
       <div className={styles.editorContent}>
         <EditorContent editor={editor} />
