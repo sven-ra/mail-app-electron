@@ -3,7 +3,6 @@
   bottom: 0;
   z-index: 10;
   padding-top: 8px;
-  padding-bottom: 8px;
   background: var(--color-bg);
   pointer-events: auto;
 }
@@ -71,9 +70,20 @@
   padding: 2px 2px 0;
 }
 
+.sendButton {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  z-index: 1;
+}
+
 .toolbarButtonActive {
   background: var(--color-bg);
   border-color: var(--color-fg);
+}
+
+.editorContent {
+  padding-bottom: 40px;
 }
 
 .editorContent :global(.tiptap) {

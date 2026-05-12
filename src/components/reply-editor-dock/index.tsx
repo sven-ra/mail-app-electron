@@ -191,13 +191,18 @@ function ReplyEditorDock({
           >
             Unlink
           </Button>
-          <Button onClick={handleSendClick} disabled={!editor || sendDisabled}>
-            Send
-          </Button>
         </div>
         <div className={styles.editorContent}>
           <EditorContent editor={editor} />
         </div>
+        <Button
+          className={styles.sendButton}
+          onClick={handleSendClick}
+          size="lg"
+          disabled={!editor || sendDisabled}
+        >
+          Send
+        </Button>
       </div>
     </div>
   );
