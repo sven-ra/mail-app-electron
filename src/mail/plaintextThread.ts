@@ -628,7 +628,10 @@ export function getAddressForActions(value: unknown): string {
   return stringValue;
 }
 
-export function getSenderDisplayName(value: unknown): string {
+export function getSenderDisplayName(
+  value: unknown,
+  options?: { bareEmailDisplay?: 'local' | 'full' }
+): string {
   const stringValue = normalizeSenderHint(value);
   if (!stringValue) {
     return '';
@@ -641,6 +644,9 @@ export function getSenderDisplayName(value: unknown): string {
 
   const addressMatch = stringValue.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
   if (addressMatch && addressMatch[0].toLowerCase() === stringValue.toLowerCase()) {
+    if (options?.bareEmailDisplay === 'full') {
+      return stringValue;
+    }
     const [localPart] = stringValue.split('@');
     return localPart;
   }

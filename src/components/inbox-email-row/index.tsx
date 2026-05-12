@@ -1,6 +1,7 @@
 import React from 'react';
 import styles from './styles.module.css';
 import { FOLDERS } from '../../mail/constants';
+import { decodeHeaderValue, getSenderDisplayName } from '../../mail/plaintextThread';
 import type { EmailListItem, FolderKey } from '../../types/mail';
 
 function formatRowDate(dateValue: string | undefined): string {
@@ -57,6 +58,9 @@ function InboxEmailRow({
     email.mailboxId && mailboxUsernameById ? mailboxUsernameById[email.mailboxId] : '';
   const showAccountSuffix =
     Boolean(showMailboxAttribution && folderLabel && mailboxUsername);
+  const senderDisplayName = getSenderDisplayName(decodeHeaderValue(email.from), {
+    bareEmailDisplay: 'full',
+  });
 
   return (
     <button
@@ -71,7 +75,7 @@ function InboxEmailRow({
             <circle cx="4" cy="4" r="4" fill="#0a66ff" />
           </svg>
         )}
-        <span className={styles.rowSenderName}>{email.from || ''}</span>
+        <span className={styles.rowSenderName}>{senderDisplayName}</span>
         {showAccountSuffix ? (
           <span className={styles.rowSenderAccount}>
             {folderLabel}
