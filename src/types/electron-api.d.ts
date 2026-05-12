@@ -1,4 +1,10 @@
-import type { EmailListItem, MailboxConfig, MailboxMap } from './mail';
+import type {
+  EmailListItem,
+  MailboxConfig,
+  MailboxMap,
+  SendMailPayload,
+  SendMailResult,
+} from './mail';
 
 type FetchFolderEmailsOptions = {
   limit?: number;
@@ -37,6 +43,14 @@ interface ElectronApi {
     uid: string | number,
     mailboxMap: MailboxMap
   ) => Promise<EmailListItem>;
+  sendMail: (config: MailboxConfig, payload: SendMailPayload) => Promise<SendMailResult>;
+  moveFolderEmail: (
+    config: MailboxConfig,
+    sourceFolderKey: string,
+    uid: string | number,
+    mailboxMap: MailboxMap,
+    targetFolderKey: string
+  ) => Promise<boolean>;
   onOpenSettings: (callback: () => void) => OpenSettingsUnsubscribe;
 }
 

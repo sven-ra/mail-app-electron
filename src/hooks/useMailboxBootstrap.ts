@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { FOLDERS, LAST_SELECTED_FOLDER_KEY, LAST_SELECTED_MAILBOX_ID_KEY } from '../mail/constants';
+import { FOLDERS, LAST_SELECTED_FOLDER_KEY, LAST_SELECTED_MAILBOX_ID_KEY, mailboxToFormConfig } from '../mail/constants';
 import { getMailboxId } from '../mail/threading';
 import { mailApi } from '../services/mailApi';
 import type { FolderKey, MailboxConfig } from '../types/mail';
@@ -74,13 +74,7 @@ export function useMailboxBootstrap({
           if (saved.host && saved.username && saved.password) {
             nextMailboxes = [saved];
           } else if (active) {
-            if (saved.host) latestActions.setConfig((current) => ({ ...current, host: saved.host }));
-            if (saved.username) {
-              latestActions.setConfig((current) => ({ ...current, username: saved.username }));
-            }
-            if (saved.password) {
-              latestActions.setConfig((current) => ({ ...current, password: saved.password }));
-            }
+            latestActions.setConfig(mailboxToFormConfig(saved));
           }
         }
 

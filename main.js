@@ -2,6 +2,8 @@ const { app, BrowserWindow, ipcMain, safeStorage, Menu } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const Imap = require('imap');
+const nodemailer = require('nodemailer');
+const MailComposer = require('nodemailer/lib/mail-composer');
 const { simpleParser } = require('mailparser');
 const crypto = require('node:crypto');
 let libmime = null;
@@ -112,18 +114,40 @@ function isEncryptedPassword(value) {
   );
 }
 
+const OPTIONAL_ENCRYPTED_STRING_KEYS = [
+  'smtpPassword',
+  'smtpClientSecret',
+  'smtpRefreshToken',
+  'smtpAccessToken',
+];
+
+function encryptOptionalSecret(value) {
+  if (!value) return '';
+  return encryptPassword(value);
+}
+
+function decryptOptionalSecret(value) {
+  if (!value) return '';
+  if (!isEncryptedPassword(value)) return value;
+  return decryptPassword(value);
+}
+
 function serializeConfig(config = {}) {
-  return {
-    ...config,
-    password: encryptPassword(config.password || ''),
-  };
+  const next = { ...config };
+  next.password = encryptPassword(config.password || '');
+  OPTIONAL_ENCRYPTED_STRING_KEYS.forEach((key) => {
+    next[key] = config[key] ? encryptOptionalSecret(String(config[key])) : '';
+  });
+  return next;
 }
 
 function deserializeConfig(config = {}) {
-  return {
-    ...config,
-    password: decryptPassword(config.password || ''),
-  };
+  const next = { ...config };
+  next.password = decryptOptionalSecret(config.password || '');
+  OPTIONAL_ENCRYPTED_STRING_KEYS.forEach((key) => {
+    next[key] = decryptOptionalSecret(config[key] || '');
+  });
+  return next;
 }
 
 function serializeConfigList(configs = []) {
@@ -268,6 +292,21 @@ function normalizeReferences(value) {
     .split(/\s+/)
     .map((item) => normalizeMessageId(item))
     .filter(Boolean);
+}
+
+function addressListText(addr) {
+  if (!addr) return '';
+  if (typeof addr.text === 'string' && addr.text) return addr.text;
+  if (Array.isArray(addr.value)) {
+    return addr.value
+      .map((v) => {
+        if (v.name && v.address) return `${v.name} <${v.address}>`;
+        return v.address || '';
+      })
+      .filter(Boolean)
+      .join(', ');
+  }
+  return '';
 }
 
 function stripAngleBrackets(value) {
@@ -644,10 +683,6 @@ ipcMain.handle('fetch-folder-email', async (event, config, folderKey, uid, mailb
           if (bodyDone) return;
           bodyDone = true;
           const rawMessageBuffer = Buffer.concat(chunks);
-          const rawMessage = rawMessageBuffer.toString('utf8');
-          console.log(
-            `[fetch-folder-email] Raw MIME for UID ${uid} (${rawMessageBuffer.length} bytes)\n${rawMessage}`
-          );
 
           simpleParser(rawMessageBuffer)
             .then((parsed) => {
@@ -656,6 +691,12 @@ ipcMain.handle('fetch-folder-email', async (event, config, folderKey, uid, mailb
                 date: parsed.date ? parsed.date.toLocaleString() : 'No date',
                 from: parsed.from ? parsed.from.text : '',
                 to: parsed.to ? parsed.to.text : '',
+                cc: addressListText(parsed.cc),
+                bcc: addressListText(parsed.bcc),
+                replyTo: addressListText(parsed.replyTo),
+                messageId: parsed.messageId ? String(parsed.messageId) : '',
+                inReplyTo: normalizeMessageId(parsed.inReplyTo),
+                references: normalizeReferences(parsed.references),
                 text: parsed.text || '',
                 html: parsed.html || '',
                 attachments: serializeAttachments(parsed.attachments),
@@ -688,6 +729,173 @@ ipcMain.handle('fetch-folder-email', async (event, config, folderKey, uid, mailb
           finish(new Error('Timeout fetching email'));
         }
       }, 15000);
+    });
+  });
+});
+
+function getFromAddress(config) {
+  const authMode = config.smtpAuthMode === 'oauth2' ? 'oauth2' : 'password';
+  const mirrorImap = config.smtpUseImapCredentials === true && authMode === 'password';
+  const candidates = mirrorImap
+    ? [config.smtpOAuthUser, config.username, config.smtpUsername]
+    : [config.smtpOAuthUser, config.smtpUsername, config.username];
+  for (let i = 0; i < candidates.length; i++) {
+    const trimmed = String(candidates[i] || '').trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
+function createSmtpTransport(config) {
+  const smtpHost = String(config.smtpHost || '').trim();
+  if (!smtpHost) {
+    throw new Error('SMTP host is not configured.');
+  }
+  const secure = true;
+  const port = 465;
+  const authMode = config.smtpAuthMode === 'oauth2' ? 'oauth2' : 'password';
+  let auth;
+  if (authMode === 'oauth2') {
+    auth = {
+      type: 'OAuth2',
+      user: getFromAddress(config),
+      clientId: String(config.smtpClientId || '').trim(),
+      clientSecret: String(config.smtpClientSecret || ''),
+      refreshToken: String(config.smtpRefreshToken || ''),
+      accessToken: String(config.smtpAccessToken || ''),
+    };
+    if (!auth.user) {
+      throw new Error('OAuth2 user is not configured.');
+    }
+    if (!auth.clientId) {
+      throw new Error('OAuth2 client ID is not configured.');
+    }
+  } else {
+    const mirrorImap = config.smtpUseImapCredentials === true;
+    const user = mirrorImap
+      ? String(config.username || '').trim()
+      : String(config.smtpUsername || config.username || '').trim();
+    const pass = mirrorImap
+      ? String(config.password || '')
+      : String(config.smtpPassword || config.password || '');
+    auth = {
+      user,
+      pass,
+    };
+  }
+  return nodemailer.createTransport({
+    host: smtpHost,
+    port,
+    secure,
+    auth,
+    tls: { rejectUnauthorized: false },
+  });
+}
+
+function appendRawToSent(config, rawBuffer) {
+  const mailboxMap = config.mailboxMap || {};
+  if (!mailboxMap.sent) {
+    return Promise.resolve('Sent folder is not mapped; message was sent but not saved to Sent.');
+  }
+  const sentPath = getMailboxPath('sent', mailboxMap);
+  return getImapConnection(config).then(
+    (imap) =>
+      new Promise((resolve) => {
+        imap.append(rawBuffer, { mailbox: sentPath, flags: ['Seen'] }, (err) => {
+          imap.end();
+          if (err) resolve('Could not append to Sent: ' + err.message);
+          else resolve('');
+        });
+      })
+  );
+}
+
+ipcMain.handle('send-mail', async (event, rawConfig, payload = {}) => {
+  const config = deserializeConfig(rawConfig || {});
+  const from = getFromAddress(config);
+  if (!from) {
+    throw new Error('From address is missing.');
+  }
+  const transporter = createSmtpTransport(config);
+
+  const attachments = Array.isArray(payload.attachments) ? payload.attachments : [];
+  const mailData = {
+    from,
+    to: payload.to || '',
+    cc: payload.cc || undefined,
+    bcc: payload.bcc || undefined,
+    subject: payload.subject || '',
+    text: payload.text || undefined,
+    html: payload.html || undefined,
+    inReplyTo: payload.inReplyTo || undefined,
+    references: Array.isArray(payload.references)
+      ? payload.references.join(' ')
+      : payload.references || undefined,
+    attachments: attachments
+      .filter((a) => a && a.contentBase64)
+      .map((a) => ({
+        filename: a.filename || 'attachment',
+        content: Buffer.from(String(a.contentBase64), 'base64'),
+        contentType: a.contentType || 'application/octet-stream',
+      })),
+  };
+
+  let mimeNode;
+  try {
+    mimeNode = new MailComposer(mailData).compile();
+  } catch (e) {
+    throw new Error('Failed to compose message: ' + e.message);
+  }
+
+  const envelope = mimeNode.getEnvelope();
+  if (!envelope.to || !envelope.to.length) {
+    throw new Error('No recipients defined.');
+  }
+
+  const rawMessage = await new Promise((resolve, reject) => {
+    mimeNode.build((err, message) => {
+      if (err) reject(err);
+      else resolve(message);
+    });
+  });
+
+  const info = await transporter.sendMail({ raw: rawMessage, envelope });
+
+  let sentWarning = '';
+  try {
+    const w = await appendRawToSent(config, rawMessage);
+    if (w) sentWarning = w;
+  } catch (e) {
+    sentWarning = 'Could not append to Sent: ' + e.message;
+  }
+
+  return { ok: true, messageId: info.messageId, sentWarning };
+});
+
+ipcMain.handle('move-folder-email', async (event, rawConfig, sourceFolderKey, uid, mailboxMap = {}, targetFolderKey) => {
+  const config = deserializeConfig(rawConfig || {});
+  const imap = await getImapConnection(config);
+  const sourcePath = getMailboxPath(sourceFolderKey, mailboxMap);
+  const destPath = getMailboxPath(targetFolderKey, mailboxMap);
+
+  return new Promise((resolve, reject) => {
+    imap.openBox(sourcePath, false, (err) => {
+      if (err) {
+        imap.end();
+        reject(new Error(`Failed to open ${sourcePath}: ` + err.message));
+        return;
+      }
+      const uidNum = Number(uid);
+      if (!Number.isFinite(uidNum)) {
+        imap.end();
+        reject(new Error('Invalid UID'));
+        return;
+      }
+      imap.move(uidNum, destPath, (moveErr) => {
+        imap.end();
+        if (moveErr) reject(moveErr);
+        else resolve(true);
+      });
     });
   });
 });
