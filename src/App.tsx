@@ -96,6 +96,25 @@ function App() {
   });
   const isLoadingMoreRef = useRef(false);
   const loadedEmailLimitRef = useRef(EMAIL_PAGE_SIZE);
+  const emailsCacheRef = useRef<Map<string, EmailListItem[]>>(new Map());
+
+  function getEmailCacheKey(mailboxId: string, folderKey: string): string {
+    return `${mailboxId}:${folderKey}`;
+  }
+
+  function invalidateEmailCache(mailboxId: string, folderKey?: string): void {
+    const cache = emailsCacheRef.current;
+    if (folderKey) {
+      cache.delete(getEmailCacheKey(mailboxId, folderKey));
+      cache.delete(getEmailCacheKey(ALL_MAILBOXES_ID, folderKey));
+      return;
+    }
+    Array.from(cache.keys()).forEach((key) => {
+      if (key.startsWith(`${mailboxId}:`) || key.startsWith(`${ALL_MAILBOXES_ID}:`)) {
+        cache.delete(key);
+      }
+    });
+  }
 
   const { isResizingInbox, handleStartInboxResize, layoutColumnStyle } = useInboxResize();
   const { toggleThemeMode } = useThemeMode();
@@ -222,6 +241,7 @@ function App() {
       setInboxPagination({ hasMore: false, isLoadingMore: false });
       isLoadingMoreRef.current = false;
       loadedEmailLimitRef.current = EMAIL_PAGE_SIZE;
+      emailsCacheRef.current.clear();
       setFolderCountsByMailbox({});
       localStorage.removeItem(LAST_SELECTED_MAILBOX_ID_KEY);
       localStorage.removeItem(LAST_SELECTED_FOLDER_KEY);
@@ -238,6 +258,58 @@ function App() {
     }
   }
 
+  async function mergeSentIntoInboxList(
+    cacheKey: string,
+    targetSelectionMailboxId: string,
+    mailboxesToMergeFrom: MailboxConfig[],
+    baseEmails: EmailListItem[],
+    requestedLimit: number
+  ): Promise<void> {
+    try {
+      const sentResults = await Promise.all(
+        mailboxesToMergeFrom.map(async (item) => {
+          try {
+            const result = getFolderEmailResult(
+              await mailApi.fetchFolderEmails(item, 'sent', item.mailboxMap || {}, {
+                limit: requestedLimit,
+              })
+            );
+            return { mailbox: item, emails: result.emails };
+          } catch {
+            return { mailbox: item, emails: [] };
+          }
+        })
+      );
+
+      const sentInjected: EmailListItem[] = [];
+      sentResults.forEach(({ mailbox: item, emails }) => {
+        const inboxForMailbox = baseEmails.filter((email) => email.mailboxId === item.id);
+        const conversationIndex = buildConversationIndex(inboxForMailbox);
+        emails
+          .filter((email) => isEmailRelatedToConversation(email, conversationIndex))
+          .forEach((email) => {
+            sentInjected.push({
+              ...withMailboxEmailMeta(email, item.id, 'sent'),
+              isThreadInjectedFromSent: true,
+            });
+          });
+      });
+
+      if (!sentInjected.length) return;
+
+      const merged = [...baseEmails, ...sentInjected].sort(compareEmailsByRecency);
+      emailsCacheRef.current.set(cacheKey, merged);
+
+      const current = selectedFolderRef.current;
+      if (current.mailboxId === targetSelectionMailboxId && current.folderKey === 'inbox') {
+        setEmails(merged);
+        loadedEmailLimitRef.current = Math.max(EMAIL_PAGE_SIZE, merged.length);
+      }
+    } catch {
+      // Background merge failures are non-fatal.
+    }
+  }
+
   async function loadFolder(
     mailboxId: string,
     folderKey: FolderKey,
@@ -250,11 +322,26 @@ function App() {
     const requestedFolderKey = mailboxId === ALL_MAILBOXES_ID ? FOLDERS[0].key : folderKey;
     const folderLabel =
       FOLDERS.find((folder) => folder.key === requestedFolderKey)?.label || requestedFolderKey;
+    const cacheKey = getEmailCacheKey(mailboxId, requestedFolderKey);
+    const cached = emailsCacheRef.current.get(cacheKey);
+    const isStillCurrent = (): boolean => {
+      const current = selectedFolderRef.current;
+      return current.mailboxId === mailboxId && current.folderKey === folderKey;
+    };
 
-    setStatus(`Loading ${folderLabel}...`);
     if (resetSelection) {
       setSelectedEmail(null);
       setSelectedEmailUid(null);
+      if (cached) {
+        setEmails(cached);
+        loadedEmailLimitRef.current = Math.max(EMAIL_PAGE_SIZE, cached.length);
+        if (showLoadedStatus) setStatus(`Refreshing ${folderLabel}...`);
+      } else {
+        setEmails([]);
+        setStatus(`Loading ${folderLabel}...`);
+      }
+    } else if (showLoadedStatus) {
+      setStatus(`Refreshing ${folderLabel}...`);
     }
 
     const requestedLimit = resetSelection
@@ -266,114 +353,84 @@ function App() {
       throw new Error('Mailbox not found');
     }
 
-    let sortedEmails: EmailListItem[] = [];
+    let baseEmails: EmailListItem[] = [];
     let hasMore = false;
 
+    if (!isAllMailboxes && mailbox && FOLDER_COUNT_KEYS.includes(requestedFolderKey)) {
+      void mailApi
+        .fetchFolderUnreadCount(mailbox, requestedFolderKey, mailbox.mailboxMap || {})
+        .then((unreadCount) => {
+          setFolderCountsByMailbox((current) => ({
+            ...current,
+            [mailbox.id]: {
+              ...(current[mailbox.id] || {}),
+              [requestedFolderKey]: unreadCount,
+            },
+          }));
+        })
+        .catch(() => undefined);
+    }
+
     if (isAllMailboxes) {
-      const allResults = await Promise.all(
+      const allInboxResults = await Promise.all(
         sourceMailboxes.map(async (item: MailboxConfig) => {
           const folderResult = getFolderEmailResult(
             await mailApi.fetchFolderEmails(item, requestedFolderKey, item.mailboxMap || {}, {
               limit: requestedLimit,
             })
           );
-          const requestedFolderEmails = folderResult.emails.map((email) => ({
+          return folderResult.emails.map((email) => ({
             ...withMailboxEmailMeta(email, item.id, requestedFolderKey),
             isThreadInjectedFromSent: false,
           }));
-          let mergedEmails = requestedFolderEmails;
-          if (requestedFolderKey === 'inbox') {
-            try {
-              const sentResult = getFolderEmailResult(
-                await mailApi.fetchFolderEmails(item, 'sent', item.mailboxMap || {}, {
-                  limit: requestedLimit,
-                })
-              );
-              const conversationIndex = buildConversationIndex(folderResult.emails);
-              const relatedSentEmails = sentResult.emails
-                .filter((email) => isEmailRelatedToConversation(email, conversationIndex))
-                .map((email) => ({
-                  ...withMailboxEmailMeta(email, item.id, 'sent'),
-                  isThreadInjectedFromSent: true,
-                }));
-              mergedEmails = [...requestedFolderEmails, ...relatedSentEmails];
-            } catch {
-              mergedEmails = requestedFolderEmails;
-            }
-          }
-          return {
-            mailboxId: item.id,
-            hasMore: folderResult.hasMore,
-            emails: mergedEmails,
-          };
         })
       );
-      sortedEmails = allResults
-        .flatMap((result) => result.emails)
-        .sort((a, b) => Number(b.uid || 0) - Number(a.uid || 0));
+      baseEmails = allInboxResults.flat().sort(compareEmailsByRecency);
       hasMore = false;
-    } else {
+    } else if (mailbox) {
       const folderResult = getFolderEmailResult(
         await mailApi.fetchFolderEmails(mailbox, requestedFolderKey, mailbox.mailboxMap || {}, {
           limit: requestedLimit,
         })
       );
-      const requestedFolderEmails = folderResult.emails.map((email) => ({
-        ...withMailboxEmailMeta(email, mailbox.id, requestedFolderKey),
-        isThreadInjectedFromSent: false,
-      }));
-
-      if (requestedFolderKey === 'inbox') {
-        let relatedSentEmails: EmailListItem[] = [];
-        try {
-          const sentResult = getFolderEmailResult(
-            await mailApi.fetchFolderEmails(mailbox, 'sent', mailbox.mailboxMap || {}, {
-              limit: requestedLimit,
-            })
-          );
-          const inboxConversationIndex = buildConversationIndex(folderResult.emails);
-          relatedSentEmails = sentResult.emails
-            .filter((email) => isEmailRelatedToConversation(email, inboxConversationIndex))
-            .map((email) => ({
-              ...withMailboxEmailMeta(email, mailbox.id, 'sent'),
-              isThreadInjectedFromSent: true,
-            }));
-        } catch {
-          relatedSentEmails = [];
-        }
-
-        sortedEmails = [...requestedFolderEmails, ...relatedSentEmails].sort(compareEmailsByRecency);
-      } else {
-        sortedEmails = requestedFolderEmails.slice().sort(compareEmailsByRecency);
-      }
+      baseEmails = folderResult.emails
+        .map((email) => ({
+          ...withMailboxEmailMeta(email, mailbox.id, requestedFolderKey),
+          isThreadInjectedFromSent: false,
+        }))
+        .slice()
+        .sort(compareEmailsByRecency);
       hasMore = folderResult.hasMore;
-      if (FOLDER_COUNT_KEYS.includes(requestedFolderKey)) {
-        const unreadCount = await mailApi.fetchFolderUnreadCount(
-          mailbox,
-          requestedFolderKey,
-          mailbox.mailboxMap || {}
+    }
+
+    emailsCacheRef.current.set(cacheKey, baseEmails);
+    loadedEmailLimitRef.current = Math.max(EMAIL_PAGE_SIZE, baseEmails.length);
+
+    if (isStillCurrent()) {
+      setEmails(baseEmails);
+      isLoadingMoreRef.current = false;
+      setInboxPagination({ hasMore, isLoadingMore: false });
+    }
+
+    if (requestedFolderKey === 'inbox') {
+      const mailboxesToMergeFrom = isAllMailboxes ? sourceMailboxes : mailbox ? [mailbox] : [];
+      if (mailboxesToMergeFrom.length) {
+        void mergeSentIntoInboxList(
+          cacheKey,
+          mailboxId,
+          mailboxesToMergeFrom,
+          baseEmails,
+          requestedLimit
         );
-        setFolderCountsByMailbox((current) => ({
-          ...current,
-          [mailbox.id]: {
-            ...(current[mailbox.id] || {}),
-            [requestedFolderKey]: unreadCount,
-          },
-        }));
       }
     }
 
-    setEmails(sortedEmails);
-    loadedEmailLimitRef.current = Math.max(EMAIL_PAGE_SIZE, sortedEmails.length);
-    isLoadingMoreRef.current = false;
-    setInboxPagination({ hasMore, isLoadingMore: false });
-
-    if (restoreSelectionFromStorage && !isAllMailboxes) {
+    if (restoreSelectionFromStorage && !isAllMailboxes && mailbox) {
       const storageKey = getFolderUidStorageKey(mailbox.id, requestedFolderKey);
       const savedUid = localStorage.getItem(storageKey);
 
       if (savedUid) {
-        const matchingEmail = sortedEmails.find(
+        const matchingEmail = baseEmails.find(
           (email) => email.mailboxId === mailbox.id && String(email.uid) === savedUid
         );
         if (matchingEmail) {
@@ -384,8 +441,8 @@ function App() {
       }
     }
 
-    if (showLoadedStatus) {
-      setStatus(`Loaded ${sortedEmails.length} emails from ${folderLabel}.`);
+    if (showLoadedStatus && isStillCurrent()) {
+      setStatus(`Loaded ${baseEmails.length} emails from ${folderLabel}.`);
     }
   }
 
@@ -442,6 +499,7 @@ function App() {
         });
         const nextEmails = Array.from(emailsByUid.values()).sort(compareEmailsByRecency);
         loadedEmailLimitRef.current = Math.max(EMAIL_PAGE_SIZE, nextEmails.length);
+        emailsCacheRef.current.set(getEmailCacheKey(mailbox.id, folderKey), nextEmails);
         return nextEmails;
       });
       setInboxPagination({ hasMore: folderResult.hasMore, isLoadingMore: false });
@@ -672,6 +730,8 @@ function App() {
         target
       );
       localStorage.removeItem(getFolderUidStorageKey(mailbox.id, loaded.folderKey));
+      invalidateEmailCache(mailbox.id, loaded.folderKey);
+      invalidateEmailCache(mailbox.id, target);
       setSelectedEmail(null);
       setSelectedEmailUid(null);
       setStatus(target === 'archive' ? 'Archived.' : 'Moved to Bin.');
@@ -740,6 +800,8 @@ function App() {
       delete next[mailboxId];
       return next;
     });
+
+    invalidateEmailCache(mailboxId);
 
     FOLDERS.forEach((folder) => {
       localStorage.removeItem(getFolderUidStorageKey(mailboxId, folder.key));
