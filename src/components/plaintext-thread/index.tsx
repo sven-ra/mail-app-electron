@@ -13,6 +13,14 @@ import { interceptMailLinkActivation } from '../../mail/openEmailLinkExternally'
 import styles from './styles.module.css';
 import type { CidAttachmentEntry, LoadedEmailContent, PlaintextSegment } from '../../types/mail';
 
+function blurFocusIfInsideInboxPanel(): void {
+  const active = document.activeElement;
+  if (!(active instanceof HTMLElement)) return;
+  if (active.closest('[data-inbox-panel]')) {
+    active.blur();
+  }
+}
+
 function renderTextWithCidImages(text: string, cidMap: Map<string, CidAttachmentEntry>) {
   const parts = splitTextByCidMarkers(text);
 
@@ -73,7 +81,7 @@ function PlaintextThread({ segments, email }: PlaintextThreadProps) {
   const lastIndex = segments.length - 1;
 
   return (
-    <div className={styles.threadList}>
+    <div className={styles.threadList} onPointerDownCapture={blurFocusIfInsideInboxPanel}>
       {segments.map((segment, index) => {
         const role = segmentRoles[index] || 'unknown';
         const blockClassName = [
