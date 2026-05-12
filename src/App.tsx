@@ -119,7 +119,14 @@ function App() {
     });
   }
 
-  const { isResizingInbox, handleStartInboxResize, layoutColumnStyle } = useInboxResize();
+  const {
+    isResizingColumns,
+    isResizingFolders,
+    isResizingInbox,
+    handleStartFoldersResize,
+    handleStartInboxResize,
+    layoutColumnStyle,
+  } = useInboxResize();
   const { toggleThemeMode } = useThemeMode();
 
   const threadGroups = useMemo(() => groupEmailsByThread(emails), [emails]);
@@ -1007,7 +1014,7 @@ function App() {
       <div className={styles.status}>{status}</div>
 
       {loggedIn && currentPage === 'inbox' && (
-        <main className={`${styles.mainLayout} ${isResizingInbox ? styles.mainLayoutResizing : ''}`} style={layoutColumnStyle}>
+        <main className={`${styles.mainLayout} ${isResizingColumns ? styles.mainLayoutResizing : ''}`} style={layoutColumnStyle}>
           <MailboxFolderSidebar
             mailboxes={mailboxes}
             selectedMailboxId={selectedMailboxId}
@@ -1019,6 +1026,11 @@ function App() {
             allMailboxesId={ALL_MAILBOXES_ID}
             onSelectAllMailboxes={handleSelectAllMailboxes}
             onSelectFolder={handleSelectFolder}
+          />
+          <ColumnResizer
+            isResizing={isResizingFolders}
+            ariaLabel={null}
+            onPointerDown={handleStartFoldersResize}
           />
           <InboxPanel
             title={FOLDERS.find((folder) => folder.key === selectedFolder)?.label || 'INBOX'}

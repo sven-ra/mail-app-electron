@@ -1,14 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { INBOX_WIDTH_STORAGE_KEY } from '../mail/constants';
+import { FOLDERS_PANEL_WIDTH_STORAGE_KEY, INBOX_WIDTH_STORAGE_KEY } from '../mail/constants';
 
 export function useInboxResize() {
-  const FOLDERS_WIDTH = 220;
+  const DEFAULT_FOLDERS_WIDTH = 220;
   const RESIZER_WIDTH = 12;
   const MAIN_LAYOUT_GAP = 16;
+  const MIN_FOLDERS_WIDTH = 160;
   const MIN_INBOX_WIDTH = 240;
   const MIN_CONTENT_WIDTH = 320;
 
+  const [foldersWidth, setFoldersWidth] = useState<number>(() => {
+    const value = Number(localStorage.getItem(FOLDERS_PANEL_WIDTH_STORAGE_KEY));
+    if (Number.isFinite(value) && value > 0) {
+      return value;
+    }
+    return DEFAULT_FOLDERS_WIDTH;
+  });
   const [inboxWidth, setInboxWidth] = useState<number>(() => {
     const value = Number(localStorage.getItem(INBOX_WIDTH_STORAGE_KEY));
     if (Number.isFinite(value) && value > 0) {
@@ -16,25 +24,75 @@ export function useInboxResize() {
     }
     return 420;
   });
+  const [isResizingFolders, setIsResizingFolders] = useState(false);
   const [isResizingInbox, setIsResizingInbox] = useState(false);
 
-  const resizeCleanupRef = useRef<(() => void) | null>(null);
-  const resizeStartXRef = useRef(0);
-  const resizeStartWidthRef = useRef(0);
-  const resizeMaxWidthRef = useRef(0);
+  const foldersResizeCleanupRef = useRef<(() => void) | null>(null);
+  const foldersResizeStartXRef = useRef(0);
+  const foldersResizeStartWidthRef = useRef(0);
+  const foldersResizeMaxWidthRef = useRef(0);
+
+  const inboxResizeCleanupRef = useRef<(() => void) | null>(null);
+  const inboxResizeStartXRef = useRef(0);
+  const inboxResizeStartWidthRef = useRef(0);
+  const inboxResizeMaxWidthRef = useRef(0);
 
   useEffect(
     () => () => {
-      if (resizeCleanupRef.current) {
-        resizeCleanupRef.current();
-      }
+      foldersResizeCleanupRef.current?.();
+      inboxResizeCleanupRef.current?.();
     },
     []
   );
 
   useEffect(() => {
+    localStorage.setItem(FOLDERS_PANEL_WIDTH_STORAGE_KEY, String(foldersWidth));
+  }, [foldersWidth]);
+
+  useEffect(() => {
     localStorage.setItem(INBOX_WIDTH_STORAGE_KEY, String(inboxWidth));
   }, [inboxWidth]);
+
+  function handleStartFoldersResize(event: ReactPointerEvent<HTMLDivElement>): void {
+    event.preventDefault();
+    const handle = event.currentTarget;
+    const layout = handle.closest('main');
+    if (!layout) return;
+
+    const maxFoldersWidth = Math.max(
+      MIN_FOLDERS_WIDTH,
+      layout.clientWidth -
+        MIN_INBOX_WIDTH -
+        RESIZER_WIDTH * 2 -
+        MIN_CONTENT_WIDTH -
+        MAIN_LAYOUT_GAP * 3
+    );
+    foldersResizeStartXRef.current = event.clientX;
+    foldersResizeStartWidthRef.current = foldersWidth;
+    foldersResizeMaxWidthRef.current = maxFoldersWidth;
+    setIsResizingFolders(true);
+
+    function handlePointerMove(moveEvent: PointerEvent) {
+      const deltaX = moveEvent.clientX - foldersResizeStartXRef.current;
+      const nextWidth = Math.min(
+        foldersResizeMaxWidthRef.current,
+        Math.max(MIN_FOLDERS_WIDTH, foldersResizeStartWidthRef.current + deltaX)
+      );
+      setFoldersWidth(nextWidth);
+    }
+
+    function handlePointerUp() {
+      setIsResizingFolders(false);
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+      foldersResizeCleanupRef.current = null;
+    }
+
+    handle.setPointerCapture(event.pointerId);
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    foldersResizeCleanupRef.current = handlePointerUp;
+  }
 
   function handleStartInboxResize(event: ReactPointerEvent<HTMLDivElement>): void {
     event.preventDefault();
@@ -45,21 +103,21 @@ export function useInboxResize() {
     const maxInboxWidth = Math.max(
       MIN_INBOX_WIDTH,
       layout.clientWidth -
-        FOLDERS_WIDTH -
-        RESIZER_WIDTH -
+        foldersWidth -
+        RESIZER_WIDTH * 2 -
         MIN_CONTENT_WIDTH -
         MAIN_LAYOUT_GAP * 3
     );
-    resizeStartXRef.current = event.clientX;
-    resizeStartWidthRef.current = inboxWidth;
-    resizeMaxWidthRef.current = maxInboxWidth;
+    inboxResizeStartXRef.current = event.clientX;
+    inboxResizeStartWidthRef.current = inboxWidth;
+    inboxResizeMaxWidthRef.current = maxInboxWidth;
     setIsResizingInbox(true);
 
     function handlePointerMove(moveEvent: PointerEvent) {
-      const deltaX = moveEvent.clientX - resizeStartXRef.current;
+      const deltaX = moveEvent.clientX - inboxResizeStartXRef.current;
       const nextWidth = Math.min(
-        resizeMaxWidthRef.current,
-        Math.max(MIN_INBOX_WIDTH, resizeStartWidthRef.current + deltaX)
+        inboxResizeMaxWidthRef.current,
+        Math.max(MIN_INBOX_WIDTH, inboxResizeStartWidthRef.current + deltaX)
       );
       setInboxWidth(nextWidth);
     }
@@ -68,21 +126,24 @@ export function useInboxResize() {
       setIsResizingInbox(false);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
-      resizeCleanupRef.current = null;
+      inboxResizeCleanupRef.current = null;
     }
 
     handle.setPointerCapture(event.pointerId);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
-    resizeCleanupRef.current = handlePointerUp;
+    inboxResizeCleanupRef.current = handlePointerUp;
   }
 
   return {
     inboxWidth,
     isResizingInbox,
+    isResizingFolders,
+    isResizingColumns: isResizingInbox || isResizingFolders,
+    handleStartFoldersResize,
     handleStartInboxResize,
     layoutColumnStyle: {
-      gridTemplateColumns: `${FOLDERS_WIDTH}px ${inboxWidth}px ${RESIZER_WIDTH}px minmax(0, 1fr)`,
+      gridTemplateColumns: `${foldersWidth}px ${RESIZER_WIDTH}px ${inboxWidth}px ${RESIZER_WIDTH}px minmax(0, 1fr)`,
     },
   };
 }

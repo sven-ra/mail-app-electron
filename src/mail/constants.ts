@@ -21,6 +21,7 @@ export const LAST_SELECTED_EMAIL_UID_PREFIX = 'lastSelectedEmailUid:';
 export const LAST_SELECTED_MAILBOX_ID_KEY = 'lastSelectedMailboxId';
 export const LAST_SELECTED_FOLDER_KEY = 'lastSelectedFolder';
 export const INBOX_WIDTH_STORAGE_KEY = 'inboxPanelWidth';
+export const FOLDERS_PANEL_WIDTH_STORAGE_KEY = 'foldersPanelWidth';
 export const THEME_STORAGE_KEY = 'themeMode';
 export const EMAIL_PAGE_SIZE = 50;
 export const FOLDER_COUNT_KEYS: FolderKey[] = ['inbox', 'junk', 'drafts', 'bin'];
