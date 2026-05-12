@@ -23,4 +23,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeListener('open-settings', handler);
     };
   },
+  setUnreadBadgeCount: (count) => ipcRenderer.invoke('set-unread-badge-count', count),
 });
