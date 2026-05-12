@@ -43,6 +43,12 @@ export interface ElectronApi {
     uid: string | number,
     mailboxMap: MailboxMap
   ) => Promise<EmailListItem>;
+  fetchFolderEmailRaw: (
+    config: MailboxConfig,
+    folderKey: string,
+    uid: string | number,
+    mailboxMap: MailboxMap
+  ) => Promise<{ rawBase64: string }>;
   sendMail: (config: MailboxConfig, payload: SendMailPayload) => Promise<SendMailResult>;
   moveFolderEmail: (
     config: MailboxConfig,

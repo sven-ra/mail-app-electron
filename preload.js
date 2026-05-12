@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('fetch-folder-unread-count', config, folderKey, mailboxMap),
   fetchFolderEmail: (config, folderKey, uid, mailboxMap) =>
     ipcRenderer.invoke('fetch-folder-email', config, folderKey, uid, mailboxMap),
+  fetchFolderEmailRaw: (config, folderKey, uid, mailboxMap) =>
+    ipcRenderer.invoke('fetch-folder-email-raw', config, folderKey, uid, mailboxMap),
   sendMail: (config, payload) => ipcRenderer.invoke('send-mail', config, payload),
   moveFolderEmail: (config, sourceFolderKey, uid, mailboxMap, targetFolderKey) =>
     ipcRenderer.invoke('move-folder-email', config, sourceFolderKey, uid, mailboxMap, targetFolderKey),

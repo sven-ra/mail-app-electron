@@ -71,6 +71,20 @@ export const mailApi = {
   ): Promise<EmailListItem> {
     return callApiMethod('fetchFolderEmail', mailboxConfig, folderKey, uid, mailboxMap) as Promise<EmailListItem>;
   },
+  fetchFolderEmailRaw(
+    mailboxConfig: MailboxConfig,
+    folderKey: string,
+    uid: number | string,
+    mailboxMap: MailboxMap
+  ): Promise<{ rawBase64: string }> {
+    return callApiMethod(
+      'fetchFolderEmailRaw',
+      mailboxConfig,
+      folderKey,
+      uid,
+      mailboxMap
+    ) as Promise<{ rawBase64: string }>;
+  },
   sendMail(mailboxConfig: MailboxConfig, payload: SendMailPayload): Promise<SendMailResult> {
     return callApiMethod('sendMail', mailboxConfig, payload) as Promise<SendMailResult>;
   },

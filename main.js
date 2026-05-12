@@ -911,6 +911,65 @@ ipcMain.handle('fetch-folder-email', async (event, config, folderKey, uid, mailb
   });
 });
 
+// IPC: fetch full RFC822 source by UID (no mailparser — bytes as received from IMAP)
+ipcMain.handle('fetch-folder-email-raw', async (event, config, folderKey, uid, mailboxMap = {}) => {
+  const mailboxPath = getMailboxPath(folderKey, mailboxMap);
+
+  return withImapConnection(config, async (imap, entry) => {
+    try {
+      await openBoxOnConnection(imap, entry, mailboxPath, true);
+    } catch (err) {
+      throw new Error(`Failed to open ${mailboxPath}: ` + err.message);
+    }
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+
+      function finish(err, result) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve(result);
+      }
+
+      const timer = setTimeout(() => finish(new Error('Timeout fetching email')), 15000);
+
+      const fetch = imap.fetch(uid, { bodies: '' });
+      let gotMessage = false;
+
+      fetch.on('message', (msg) => {
+        gotMessage = true;
+        const chunks = [];
+        let bodyDone = false;
+
+        function resolveRaw() {
+          if (bodyDone) return;
+          bodyDone = true;
+          const rawMessageBuffer = Buffer.concat(chunks);
+          finish(null, { rawBase64: rawMessageBuffer.toString('base64') });
+        }
+
+        msg.on('body', (stream) => {
+          stream.on('data', (chunk) => chunks.push(chunk));
+          stream.once('end', () => resolveRaw());
+        });
+
+        msg.once('end', () => resolveRaw());
+        msg.once('error', (err) => finish(new Error('Message error: ' + err.message)));
+      });
+
+      fetch.once('error', (err) => finish(new Error('Fetch error: ' + err.message)));
+
+      fetch.once('end', () => {
+        if (!gotMessage) {
+          finish(new Error('No message found for UID ' + uid));
+        }
+      });
+    });
+  });
+});
+
 function getFromAddress(config) {
   const authMode = config.smtpAuthMode === 'oauth2' ? 'oauth2' : 'password';
   const mirrorImap = config.smtpUseImapCredentials === true && authMode === 'password';

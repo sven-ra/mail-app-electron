@@ -1,0 +1,33 @@
+.panel {
+  position: fixed;
+  right: 16px;
+  bottom: 56px;
+  z-index: 30;
+  padding: 10px 12px;
+  border: 1px solid var(--color-fg);
+  background: var(--color-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 200px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.button {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--color-fg);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  cursor: pointer;
+  text-align: left;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.button:not(:disabled):hover {
+  opacity: 0.85;
+}

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useEvent } from 'react-use';
 import LoginForm from './components/login-form';
 import InboxPanel from './components/inbox-panel';
@@ -6,6 +6,7 @@ import EmailContentView from './components/email-content-view';
 import MailboxFolderSidebar from './components/mailbox-folder-sidebar';
 import SettingsScreen from './components/settings-screen';
 import ColumnResizer from './components/column-resizer';
+import DebugPanel from './components/debug-panel';
 import './styles/main.css';
 import styles from './App.module.css';
 import {
@@ -70,6 +71,36 @@ const COMPOSE_INITIAL = {
 
 type ComposeState = typeof COMPOSE_INITIAL;
 
+function targetIsEditableField(target: EventTarget | null): boolean {
+  if (!target || !(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  if (target.closest('[contenteditable="true"]')) return true;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+}
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const binary = atob(base64);
+  const len = binary.length;
+  const out = new Uint8Array(len);
+  for (let i = 0; i < len; i += 1) {
+    out[i] = binary.charCodeAt(i);
+  }
+  return out;
+}
+
+function downloadUint8ArrayAsFile(bytes: Uint8Array, filename: string): void {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  const blob = new Blob([copy], { type: 'message/rfc822' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function App() {
   const [config, setConfig] = useState<MailboxConfig>(EMPTY_CONFIG);
   const [mailboxes, setMailboxes] = useState<MailboxConfig[]>([]);
@@ -91,6 +122,8 @@ function App() {
   const [composeBodyResetKey, setComposeBodyResetKey] = useState(0);
   const [composeInitialBodyHtml, setComposeInitialBodyHtml] = useState('<p></p>');
   const [composeAttachments, setComposeAttachments] = useState<{ id: string; file: File }[]>([]);
+  const [debugPanelOpen, setDebugPanelOpen] = useState(false);
+  const [rawSavePending, setRawSavePending] = useState(false);
 
   const selectedFolderRef = useRef<{ mailboxId: string | null; folderKey: FolderKey }>({
     mailboxId: null,
@@ -175,10 +208,54 @@ function App() {
       handleOpenInbox();
       return;
     }
+    if (
+      loggedIn &&
+      event.shiftKey &&
+      (event.key === 'd' || event.key === 'D') &&
+      !targetIsEditableField(event.target)
+    ) {
+      event.preventDefault();
+      setDebugPanelOpen((open) => !open);
+      return;
+    }
     if (!event.shiftKey) return;
     if (event.key !== 'm' && event.key !== 'M') return;
     toggleThemeMode();
   });
+
+  const handleSaveCurrentEmailRaw = useCallback(async () => {
+    if (!contentMailbox) {
+      setStatus('No mailbox selected.');
+      return;
+    }
+    if (!selectedEmail || selectedEmail.loading || selectedEmail.error) {
+      setStatus('Error loading email.');
+      return;
+    }
+    const loaded = selectedEmail as LoadedEmailContent;
+    const uid = loaded.uid;
+    const folderKey = (loaded.folderKey || selectedFolder) as FolderKey;
+    if (uid == null) {
+      setStatus('Error: no UID available for this email.');
+      return;
+    }
+    setRawSavePending(true);
+    try {
+      const { rawBase64 } = await mailApi.fetchFolderEmailRaw(
+        contentMailbox,
+        folderKey,
+        uid,
+        contentMailbox.mailboxMap || {}
+      );
+      const bytes = base64ToUint8Array(rawBase64);
+      const safeFolder = String(folderKey).replace(/[^a-zA-Z0-9_-]/g, '_');
+      downloadUint8ArrayAsFile(bytes, `email-${uid}-${safeFolder}.eml`);
+    } catch (error) {
+      setStatus('Error: ' + (error as Error).message);
+    } finally {
+      setRawSavePending(false);
+    }
+  }, [contentMailbox, selectedEmail, selectedFolder]);
 
   async function persistMailboxes(nextMailboxes: MailboxConfig[]): Promise<void> {
     setMailboxes(nextMailboxes);
@@ -1085,6 +1162,20 @@ function App() {
           selectedSettingsMailboxId={selectedSettingsMailboxId}
           onSelectSettingsMailbox={handleSelectSettingsMailbox}
           onRemoveMailbox={handleRemoveMailbox}
+        />
+      )}
+
+      {loggedIn && (
+        <DebugPanel
+          open={debugPanelOpen}
+          saveDisabled={
+            !contentMailbox ||
+            !selectedEmail ||
+            selectedEmail.loading === true ||
+            Boolean((selectedEmail as { error?: string }).error)
+          }
+          savePending={rawSavePending}
+          onSaveCurrentEmailRaw={handleSaveCurrentEmailRaw}
         />
       )}
     </div>
