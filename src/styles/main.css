@@ -64,9 +64,11 @@ body {
   --color-bg-step-3: rgba(255, 255, 255, 0.18);
   --color-bg-step-4: rgba(255, 255, 255, 0.24);
   --color-fg-step-1: rgba(255, 255, 255, 1);
-  --color-fg-step-2: rgba(255, 255, 255, 0.85);
-  --color-fg-step-3: rgba(255, 255, 255, 0.7);
-  --color-fg-step-4: rgba(255, 255, 255, 0.55);
+  --color-fg-step-2: rgba(255, 255, 255, 0.8);
+  --color-fg-step-3: rgba(255, 255, 255, 0.6);
+  --color-fg-step-4: rgba(255, 255, 255, 0.4);
+  --color-fg-step-5: rgba(255, 255, 255, 0.2);
+  --color-fg-step-6: rgba(255, 255, 255, 0.1);
   --text-opacity-step-1: 1;
   --text-opacity-step-2: 0.85;
   --text-opacity-step-3: 0.7;
