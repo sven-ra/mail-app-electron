@@ -5,6 +5,7 @@ import {
   getAddressForActions,
   getSenderDisplayName,
 } from '../../mail/plaintextThread';
+import Button from '../button';
 import styles from './styles.module.css';
 
 type SenderDropdownProps = {
@@ -45,9 +46,9 @@ function SenderDropdown({ label }: SenderDropdownProps) {
     <div className={styles.messageSender}>
       <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
-          <button type="button" className={styles.messageSenderButton}>
+          <Button size="sm">
             {displayName}
-          </button>
+          </Button>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content className={styles.senderMenuContent} sideOffset={4} align="start">
