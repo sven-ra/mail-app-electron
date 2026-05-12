@@ -65,7 +65,7 @@ function InboxPanel({
 
   return (
     <section className={styles.inboxSection} data-inbox-panel onScroll={handleScroll}>
-      <h2>{title}</h2>
+      {/* <h2>{title}</h2> */}
       <ul className={styles.list}>
         {threadGroups.map((thread) => {
           const firstEmail = thread.emails[0];
