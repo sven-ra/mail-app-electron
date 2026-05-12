@@ -1,6 +1,7 @@
 import React from 'react';
 import styles from './styles.module.css';
-import type { EmailListItem } from '../../types/mail';
+import { FOLDERS } from '../../mail/constants';
+import type { EmailListItem, FolderKey } from '../../types/mail';
 
 function formatRowDate(dateValue: string | undefined): string {
   if (!dateValue) return '';
@@ -24,9 +25,17 @@ type InboxEmailRowProps = {
   email: EmailListItem;
   selectedEmailUid: string | null;
   onSelectEmail: (email: EmailListItem) => void;
+  showMailboxAttribution?: boolean;
+  mailboxUsernameById?: Record<string, string>;
 };
 
-function InboxEmailRow({ email, selectedEmailUid, onSelectEmail }: InboxEmailRowProps) {
+function InboxEmailRow({
+  email,
+  selectedEmailUid,
+  onSelectEmail,
+  showMailboxAttribution,
+  mailboxUsernameById,
+}: InboxEmailRowProps) {
   const previewLines = email.previewLines || [];
   const previewText = previewLines
     .filter((line) => {
@@ -37,6 +46,17 @@ function InboxEmailRow({ email, selectedEmailUid, onSelectEmail }: InboxEmailRow
     .join(' ');
   const rowEmailUid = email.selectionUid || String(email.uid);
   const isActive = selectedEmailUid && rowEmailUid === String(selectedEmailUid);
+  const rawFolderKey = email.folderKey as FolderKey | undefined;
+  const attributionFolderKey: FolderKey | undefined = email.isThreadInjectedFromSent
+    ? 'inbox'
+    : rawFolderKey;
+  const folderLabel = attributionFolderKey
+    ? FOLDERS.find((folder) => folder.key === attributionFolderKey)?.label
+    : undefined;
+  const mailboxUsername =
+    email.mailboxId && mailboxUsernameById ? mailboxUsernameById[email.mailboxId] : '';
+  const showAccountSuffix =
+    Boolean(showMailboxAttribution && folderLabel && mailboxUsername);
 
   return (
     <button
@@ -51,7 +71,14 @@ function InboxEmailRow({ email, selectedEmailUid, onSelectEmail }: InboxEmailRow
             <circle cx="4" cy="4" r="4" fill="#0a66ff" />
           </svg>
         )}
-        <span>{email.from || ''}</span>
+        <span className={styles.rowSenderName}>{email.from || ''}</span>
+        {showAccountSuffix ? (
+          <span className={styles.rowSenderAccount}>
+            {folderLabel}
+            {' \u2013 '}
+            {mailboxUsername}
+          </span>
+        ) : null}
       </div>
       <div className={styles.rowSubject}>{email.subject}</div>
       <div className={styles.rowPreview}>{previewText}</div>

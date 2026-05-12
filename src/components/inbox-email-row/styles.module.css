@@ -24,6 +24,21 @@
   align-items: center;
   gap: 6px;
   margin-bottom: 2px;
+  min-width: 0;
+}
+
+.rowSenderName {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.rowSenderAccount {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: var(--text-opacity-step-3);
 }
 
 .unreadDotIcon {

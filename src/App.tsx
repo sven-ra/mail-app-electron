@@ -122,6 +122,10 @@ function App() {
 
   const threadGroups = useMemo(() => groupEmailsByThread(emails), [emails]);
   const validFolderKeys = useMemo(() => new Set(FOLDERS.map((folder) => folder.key)), []);
+  const mailboxUsernameById = useMemo(
+    () => Object.fromEntries(mailboxes.map((mailbox) => [mailbox.id, mailbox.username])),
+    [mailboxes]
+  );
   const contentMailbox = useMemo(() => {
     if (!selectedEmail || selectedEmail.loading || selectedEmail.error) return null;
     const loaded = selectedEmail as LoadedEmailContent;
@@ -918,6 +922,8 @@ function App() {
             onSelectEmail={handleSelectEmail}
             onLoadMore={handleLoadMoreEmails}
             isLoadingMore={inboxPagination.isLoadingMore}
+            showMailboxAttribution={selectedMailboxId === ALL_MAILBOXES_ID}
+            mailboxUsernameById={mailboxUsernameById}
           />
           <div
             role="separator"

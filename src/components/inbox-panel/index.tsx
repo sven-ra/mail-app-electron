@@ -11,6 +11,8 @@ type InboxPanelProps = {
   onSelectEmail: (email: EmailListItem) => void;
   onLoadMore?: () => void;
   isLoadingMore: boolean;
+  showMailboxAttribution?: boolean;
+  mailboxUsernameById?: Record<string, string>;
 };
 
 function InboxPanel({
@@ -20,6 +22,8 @@ function InboxPanel({
   onSelectEmail,
   onLoadMore,
   isLoadingMore,
+  showMailboxAttribution,
+  mailboxUsernameById,
 }: InboxPanelProps) {
   const [expandedThreadIds, setExpandedThreadIds] = useState<Set<string>>(() => new Set());
 
@@ -83,6 +87,8 @@ function InboxPanel({
                   email={firstEmail}
                   selectedEmailUid={selectedEmailUid}
                   onSelectEmail={onSelectEmail}
+                  showMailboxAttribution={showMailboxAttribution}
+                  mailboxUsernameById={mailboxUsernameById}
                 />
               </div>
 
@@ -97,6 +103,8 @@ function InboxPanel({
                         email={email}
                         selectedEmailUid={selectedEmailUid}
                         onSelectEmail={onSelectEmail}
+                        showMailboxAttribution={showMailboxAttribution}
+                        mailboxUsernameById={mailboxUsernameById}
                       />
                     </li>
                   ))}
