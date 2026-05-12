@@ -341,6 +341,9 @@ function App() {
           localStorage.removeItem(getFolderUidStorageKey(mailboxId, folder.key));
         });
       });
+      FOLDERS.forEach((folder) => {
+        localStorage.removeItem(getFolderUidStorageKey(ALL_MAILBOXES_ID, folder.key));
+      });
       setStatus('Logged out.');
       setLoggedIn(false);
       setCurrentPage('inbox');
@@ -516,7 +519,27 @@ function App() {
       }
     }
 
-    if (restoreSelectionFromStorage && !isAllMailboxes && mailbox) {
+    if (restoreSelectionFromStorage && isAllMailboxes) {
+      const storageKey = getFolderUidStorageKey(ALL_MAILBOXES_ID, requestedFolderKey);
+      const saved = localStorage.getItem(storageKey);
+
+      if (saved) {
+        const splitIndex = saved.lastIndexOf(':');
+        if (splitIndex > 0) {
+          const savedMailboxId = saved.slice(0, splitIndex);
+          const savedUid = saved.slice(splitIndex + 1);
+          const matchingEmail = baseEmails.find(
+            (email) => email.mailboxId === savedMailboxId && String(email.uid) === savedUid
+          );
+          const mailboxForSelect = sourceMailboxes.find((item) => item.id === savedMailboxId);
+          if (matchingEmail && mailboxForSelect) {
+            await handleSelectEmail(matchingEmail, mailboxForSelect, folderKey);
+            return;
+          }
+        }
+        localStorage.removeItem(storageKey);
+      }
+    } else if (restoreSelectionFromStorage && !isAllMailboxes && mailbox) {
       const storageKey = getFolderUidStorageKey(mailbox.id, requestedFolderKey);
       const savedUid = localStorage.getItem(storageKey);
 
@@ -752,6 +775,12 @@ function App() {
 
       setSelectedEmail(merged);
       localStorage.setItem(getFolderUidStorageKey(mailbox.id, folderKey), String(email.uid));
+      if (selectedMailboxId === ALL_MAILBOXES_ID) {
+        localStorage.setItem(
+          getFolderUidStorageKey(ALL_MAILBOXES_ID, folderKey),
+          `${mailbox.id}:${email.uid}`
+        );
+      }
       setStatus(statusAfterLoad);
     } catch (error) {
       setSelectedEmail({ error: 'Error loading email: ' + (error as Error).message });
@@ -937,6 +966,9 @@ function App() {
       );
       if (isMovingSelectedEmail) {
         localStorage.removeItem(getFolderUidStorageKey(mailbox.id, sourceFolderKey));
+        if (selectedMailboxId === ALL_MAILBOXES_ID) {
+          localStorage.removeItem(getFolderUidStorageKey(ALL_MAILBOXES_ID, sourceFolderKey));
+        }
       }
       invalidateEmailCache(mailbox.id, sourceFolderKey);
       invalidateEmailCache(mailbox.id, target);
@@ -1088,6 +1120,14 @@ function App() {
 
     FOLDERS.forEach((folder) => {
       localStorage.removeItem(getFolderUidStorageKey(mailboxId, folder.key));
+      const allKey = getFolderUidStorageKey(ALL_MAILBOXES_ID, folder.key);
+      const allValue = localStorage.getItem(allKey);
+      if (allValue) {
+        const splitIdx = allValue.lastIndexOf(':');
+        if (splitIdx > 0 && allValue.slice(0, splitIdx) === mailboxId) {
+          localStorage.removeItem(allKey);
+        }
+      }
     });
 
     const removedSelectedInbox = selectedMailboxId === mailboxId;
