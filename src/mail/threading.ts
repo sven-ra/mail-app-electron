@@ -110,6 +110,47 @@ export function groupEmailsByThread(emails: EmailListItem[]): ThreadGroup[] {
   }));
 }
 
+/** Next inbox thread to open after removing the current one (same mailbox as `loaded`); never another message in the same thread. */
+export function pickNeighborEmailForMove(
+  emails: EmailListItem[],
+  loaded: Pick<EmailListItem, 'uid' | 'folderKey' | 'mailboxId' | 'selectionUid'>,
+  mailboxId: string,
+  isAllMailboxesView: boolean
+): EmailListItem | null {
+  const mbId = String(loaded.mailboxId || mailboxId);
+  const list = isAllMailboxesView ? emails.filter((e) => String(e.mailboxId) === mbId) : emails;
+  const threads = groupEmailsByThread(list);
+  const selectedKey = loaded.selectionUid
+    ? String(loaded.selectionUid)
+    : `${mbId}:${loaded.folderKey}:${loaded.uid}`;
+
+  function emailMatches(e: EmailListItem): boolean {
+    const k = e.selectionUid
+      ? String(e.selectionUid)
+      : `${e.mailboxId}:${e.folderKey}:${e.uid}`;
+    if (k === selectedKey) return true;
+    return (
+      String(e.uid) === String(loaded.uid) &&
+      e.folderKey === loaded.folderKey &&
+      String(e.mailboxId) === mbId
+    );
+  }
+
+  for (let ti = 0; ti < threads.length; ti++) {
+    const thread = threads[ti];
+    if (!thread.emails.some(emailMatches)) continue;
+
+    const nextThread = threads[ti + 1];
+    if (nextThread?.emails[0]) return nextThread.emails[0];
+
+    const prevThread = threads[ti - 1];
+    if (prevThread?.emails[0]) return prevThread.emails[0];
+
+    return null;
+  }
+  return null;
+}
+
 export function getFolderEmailResult(
   value: FetchFolderEmailsResponse | EmailListItem[] | null | undefined
 ): FetchFolderEmailsResponse {

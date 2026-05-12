@@ -25,6 +25,7 @@ import {
   getMailboxId,
   groupEmailsByThread,
   isEmailRelatedToConversation,
+  pickNeighborEmailForMove,
   withMailboxEmailMeta,
 } from './mail/threading';
 import {
@@ -720,6 +721,12 @@ function App() {
     const mailboxId = loaded.mailboxId || (selectedMailboxId !== ALL_MAILBOXES_ID ? selectedMailboxId : null);
     const mailbox = mailboxId ? mailboxes.find((item) => item.id === mailboxId) : null;
     if (!mailbox || !loaded.uid || !loaded.folderKey) return;
+    const neighbor = pickNeighborEmailForMove(
+      emails,
+      loaded,
+      mailbox.id,
+      selectedMailboxId === ALL_MAILBOXES_ID
+    );
     setStatus(target === 'archive' ? 'Archiving…' : 'Moving to Bin…');
     try {
       await mailApi.moveFolderEmail(
@@ -741,6 +748,12 @@ function App() {
         restoreSelectionFromStorage: false,
         showLoadedStatus: true,
       });
+      if (neighbor?.uid != null) {
+        const neighborMailbox =
+          mailboxes.find((item) => item.id === neighbor.mailboxId) || mailbox;
+        const neighborFolder = (neighbor.folderKey || selectedFolder) as FolderKey;
+        await handleSelectEmail(neighbor, neighborMailbox, neighborFolder);
+      }
     } catch (error) {
       setStatus('Error: ' + (error as Error).message);
     }
