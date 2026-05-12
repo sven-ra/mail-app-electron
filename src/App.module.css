@@ -19,7 +19,7 @@
 .mainLayout {
   display: grid;
   /* Fallback columns; App applies persisted runtime width inline. */
-  grid-template-columns: 220px 12px 420px 12px minmax(0, 1fr);
+  grid-template-columns: 220px 6px 420px 6px minmax(0, 1fr);
   align-items: stretch;
   flex: 1;
   min-height: 0;

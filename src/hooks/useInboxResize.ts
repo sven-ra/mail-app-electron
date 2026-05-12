@@ -4,7 +4,7 @@ import { FOLDERS_PANEL_WIDTH_STORAGE_KEY, INBOX_WIDTH_STORAGE_KEY } from '../mai
 
 export function useInboxResize() {
   const DEFAULT_FOLDERS_WIDTH = 220;
-  const RESIZER_WIDTH = 12;
+  const RESIZER_WIDTH = 6;
   const MAIN_LAYOUT_GAP = 16;
   const MIN_FOLDERS_WIDTH = 160;
   const MIN_INBOX_WIDTH = 240;
