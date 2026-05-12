@@ -9,7 +9,7 @@
   background: var(--color-bg);
   cursor: pointer;
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--font-size-body);
   line-height: 1;
 
   &:disabled {
@@ -27,8 +27,9 @@
   }
 
   &.sizeSm {
-    padding: 4px 8px;
+    padding: 2px 4px;
     gap: 4px;
+    font-size: var(--font-size-small);
 
     .icon {
       width: 12px;
@@ -37,7 +38,7 @@
   }
 
   &.sizeMd {
-    padding: 6px 10px;
+    padding: 4px 6px;
     gap: 6px;
 
     .icon {

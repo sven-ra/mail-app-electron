@@ -7,7 +7,7 @@
 
 .sectionTitle {
   margin: 8px 0 0;
-  font-size: 1em;
+  font-size: var(--font-size-body);
   font-weight: 600;
 }
 
@@ -48,7 +48,7 @@
 
 .checkboxIndicator {
   color: var(--color-fg);
-  font-size: 12px;
+  font-size: var(--font-size-body);
   line-height: 1;
 }
 

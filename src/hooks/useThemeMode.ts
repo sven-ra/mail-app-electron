@@ -1,16 +1,11 @@
 import { useEffect, useState } from 'react';
 import { THEME_STORAGE_KEY } from '../mail/constants';
+import { readInitialThemeMode, type ThemeMode } from '../mail/initialThemeMode';
 
-type ThemeMode = 'light' | 'dark';
+export type { ThemeMode } from '../mail/initialThemeMode';
 
 export function useThemeMode() {
-  const [themeMode, setThemeMode] = useState<ThemeMode>(() => {
-    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
-    if (storedTheme === 'dark' || storedTheme === 'light') {
-      return storedTheme;
-    }
-    return 'light';
-  });
+  const [themeMode, setThemeMode] = useState<ThemeMode>(readInitialThemeMode);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', themeMode);
