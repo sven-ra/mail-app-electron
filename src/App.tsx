@@ -98,6 +98,7 @@ function App() {
   const isLoadingMoreRef = useRef(false);
   const loadedEmailLimitRef = useRef(EMAIL_PAGE_SIZE);
   const emailsCacheRef = useRef<Map<string, EmailListItem[]>>(new Map());
+  const pendingComposeModeRef = useRef<'reply' | 'replyAll' | 'forward'>('reply');
 
   function getEmailCacheKey(mailboxId: string, folderKey: string): string {
     return `${mailboxId}:${folderKey}`;
@@ -610,15 +611,28 @@ function App() {
       setCompose({ ...COMPOSE_INITIAL });
       bumpComposeBody('<p></p>');
       setComposeAttachments([]);
+      pendingComposeModeRef.current = 'reply';
       return;
     }
     if (selectedEmail.loading || selectedEmail.error || !contentMailbox) {
       return;
     }
     const loaded = selectedEmail as LoadedEmailContent;
-    const next = buildReplyCompose(loaded);
-    setCompose({ ...COMPOSE_INITIAL, ...next });
-    bumpComposeBody('<p></p>');
+    const mode = pendingComposeModeRef.current;
+    pendingComposeModeRef.current = 'reply';
+    if (mode === 'forward') {
+      const { initialHtml, ...rest } = buildForwardCompose(loaded);
+      setCompose({ ...COMPOSE_INITIAL, ...rest });
+      bumpComposeBody(initialHtml);
+    } else if (mode === 'replyAll') {
+      const next = buildReplyAllCompose(loaded, contentMailbox);
+      setCompose({ ...COMPOSE_INITIAL, ...next });
+      bumpComposeBody('<p></p>');
+    } else {
+      const next = buildReplyCompose(loaded);
+      setCompose({ ...COMPOSE_INITIAL, ...next });
+      bumpComposeBody('<p></p>');
+    }
     setComposeAttachments([]);
   }, [selectedEmail, contentMailbox]);
 
@@ -719,40 +733,67 @@ function App() {
     }
   }
 
-  async function handleMessageMove(target: 'archive' | 'bin'): Promise<void> {
-    if (!selectedEmail || selectedEmail.loading || selectedEmail.error) return;
-    const loaded = selectedEmail as LoadedEmailContent;
-    const mailboxId = loaded.mailboxId || (selectedMailboxId !== ALL_MAILBOXES_ID ? selectedMailboxId : null);
+  const MOVE_STATUS_PROGRESS: Record<'archive' | 'bin' | 'junk', string> = {
+    archive: 'Archiving…',
+    bin: 'Moving to Bin…',
+    junk: 'Moving to Junk…',
+  };
+
+  const MOVE_STATUS_DONE: Record<'archive' | 'bin' | 'junk', string> = {
+    archive: 'Archived.',
+    bin: 'Moved to Bin.',
+    junk: 'Moved to Junk.',
+  };
+
+  async function moveEmailToFolder(
+    email: EmailListItem,
+    target: 'archive' | 'bin' | 'junk'
+  ): Promise<void> {
+    const mailboxId =
+      email.mailboxId ||
+      (selectedMailboxId && selectedMailboxId !== ALL_MAILBOXES_ID ? selectedMailboxId : null);
     const mailbox = mailboxId ? mailboxes.find((item) => item.id === mailboxId) : null;
-    if (!mailbox || !loaded.uid || !loaded.folderKey) return;
-    const neighbor = pickNeighborEmailForMove(
-      emails,
-      loaded,
-      mailbox.id,
-      selectedMailboxId === ALL_MAILBOXES_ID
-    );
-    setStatus(target === 'archive' ? 'Archiving…' : 'Moving to Bin…');
+    const sourceFolderKey = (email.folderKey || selectedFolder) as FolderKey;
+    if (!mailbox || !email.uid || !sourceFolderKey) return;
+
+    const isMovingSelectedEmail =
+      selectedEmailUid != null &&
+      (email.selectionUid || String(email.uid)) === String(selectedEmailUid);
+    const neighbor = isMovingSelectedEmail
+      ? pickNeighborEmailForMove(
+          emails,
+          email,
+          mailbox.id,
+          selectedMailboxId === ALL_MAILBOXES_ID
+        )
+      : null;
+
+    setStatus(MOVE_STATUS_PROGRESS[target]);
     try {
       await mailApi.moveFolderEmail(
         mailbox,
-        loaded.folderKey,
-        loaded.uid,
+        sourceFolderKey,
+        email.uid,
         mailbox.mailboxMap || {},
         target
       );
-      localStorage.removeItem(getFolderUidStorageKey(mailbox.id, loaded.folderKey));
-      invalidateEmailCache(mailbox.id, loaded.folderKey);
+      if (isMovingSelectedEmail) {
+        localStorage.removeItem(getFolderUidStorageKey(mailbox.id, sourceFolderKey));
+      }
+      invalidateEmailCache(mailbox.id, sourceFolderKey);
       invalidateEmailCache(mailbox.id, target);
-      setSelectedEmail(null);
-      setSelectedEmailUid(null);
-      setStatus(target === 'archive' ? 'Archived.' : 'Moved to Bin.');
+      if (isMovingSelectedEmail) {
+        setSelectedEmail(null);
+        setSelectedEmailUid(null);
+      }
+      setStatus(MOVE_STATUS_DONE[target]);
       const folderMailboxId = selectedMailboxId === ALL_MAILBOXES_ID ? ALL_MAILBOXES_ID : mailbox.id;
       await loadFolder(folderMailboxId, selectedFolder, undefined, {
         resetSelection: false,
         restoreSelectionFromStorage: false,
         showLoadedStatus: true,
       });
-      if (neighbor?.uid != null) {
+      if (isMovingSelectedEmail && neighbor?.uid != null) {
         const neighborMailbox =
           mailboxes.find((item) => item.id === neighbor.mailboxId) || mailbox;
         const neighborFolder = (neighbor.folderKey || selectedFolder) as FolderKey;
@@ -761,6 +802,69 @@ function App() {
     } catch (error) {
       setStatus('Error: ' + (error as Error).message);
     }
+  }
+
+  async function handleMessageMove(target: 'archive' | 'bin'): Promise<void> {
+    if (!selectedEmail || selectedEmail.loading || selectedEmail.error) return;
+    const loaded = selectedEmail as LoadedEmailContent;
+    await moveEmailToFolder(loaded, target);
+  }
+
+  async function handleContextMenuReply(email: EmailListItem): Promise<void> {
+    pendingComposeModeRef.current = 'reply';
+    await handleSelectEmail(email);
+  }
+
+  async function handleContextMenuReplyAll(email: EmailListItem): Promise<void> {
+    pendingComposeModeRef.current = 'replyAll';
+    await handleSelectEmail(email);
+  }
+
+  async function handleContextMenuForward(email: EmailListItem): Promise<void> {
+    pendingComposeModeRef.current = 'forward';
+    await handleSelectEmail(email);
+  }
+
+  async function handleMarkEmailAsUnread(email: EmailListItem): Promise<void> {
+    const mailboxId =
+      email.mailboxId ||
+      (selectedMailboxId && selectedMailboxId !== ALL_MAILBOXES_ID ? selectedMailboxId : null);
+    const mailbox = mailboxId ? mailboxes.find((item) => item.id === mailboxId) : null;
+    const folderKey = (email.folderKey || selectedFolder) as FolderKey;
+    if (!mailbox || !email.uid || !folderKey) return;
+
+    setStatus('Marking as unread…');
+    try {
+      await mailApi.setFolderEmailReadState(
+        mailbox,
+        folderKey,
+        email.uid,
+        mailbox.mailboxMap || {},
+        false
+      );
+      invalidateEmailCache(mailbox.id, folderKey);
+      setStatus('Marked as unread.');
+      const folderMailboxId = selectedMailboxId === ALL_MAILBOXES_ID ? ALL_MAILBOXES_ID : mailbox.id;
+      await loadFolder(folderMailboxId, selectedFolder, undefined, {
+        resetSelection: false,
+        restoreSelectionFromStorage: false,
+        showLoadedStatus: false,
+      });
+    } catch (error) {
+      setStatus('Error: ' + (error as Error).message);
+    }
+  }
+
+  async function handleMoveEmailToJunk(email: EmailListItem): Promise<void> {
+    await moveEmailToFolder(email, 'junk');
+  }
+
+  async function handleDeleteEmail(email: EmailListItem): Promise<void> {
+    await moveEmailToFolder(email, 'bin');
+  }
+
+  async function handleArchiveEmail(email: EmailListItem): Promise<void> {
+    await moveEmailToFolder(email, 'archive');
   }
 
   function handleConfigChange(field: keyof MailboxConfig, value: string | boolean): void {
@@ -924,6 +1028,13 @@ function App() {
             isLoadingMore={inboxPagination.isLoadingMore}
             showMailboxAttribution={selectedMailboxId === ALL_MAILBOXES_ID}
             mailboxUsernameById={mailboxUsernameById}
+            onReplyEmail={handleContextMenuReply}
+            onReplyAllEmail={handleContextMenuReplyAll}
+            onForwardEmail={handleContextMenuForward}
+            onMarkEmailAsUnread={handleMarkEmailAsUnread}
+            onMoveEmailToJunk={handleMoveEmailToJunk}
+            onDeleteEmail={handleDeleteEmail}
+            onArchiveEmail={handleArchiveEmail}
           />
           <div
             role="separator"

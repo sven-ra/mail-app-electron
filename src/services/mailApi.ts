@@ -90,6 +90,22 @@ export const mailApi = {
       targetFolderKey
     ) as Promise<boolean>;
   },
+  setFolderEmailReadState(
+    mailboxConfig: MailboxConfig,
+    folderKey: string,
+    uid: number | string,
+    mailboxMap: MailboxMap,
+    isRead: boolean
+  ): Promise<boolean> {
+    return callApiMethod(
+      'setFolderEmailReadState',
+      mailboxConfig,
+      folderKey,
+      uid,
+      mailboxMap,
+      isRead
+    ) as Promise<boolean>;
+  },
   onOpenSettings(handler: () => void): (() => void) | undefined {
     const api = window.electronAPI;
     if (!api || typeof api.onOpenSettings !== 'function') return undefined;

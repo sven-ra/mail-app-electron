@@ -51,6 +51,13 @@ export interface ElectronApi {
     mailboxMap: MailboxMap,
     targetFolderKey: string
   ) => Promise<boolean>;
+  setFolderEmailReadState: (
+    config: MailboxConfig,
+    folderKey: string,
+    uid: string | number,
+    mailboxMap: MailboxMap,
+    isRead: boolean
+  ) => Promise<boolean>;
   onOpenSettings: (callback: () => void) => OpenSettingsUnsubscribe;
   setUnreadBadgeCount: (count: number) => Promise<boolean>;
   openExternalUrl: (url: string) => Promise<boolean>;

@@ -1048,6 +1048,35 @@ ipcMain.handle('send-mail', async (event, rawConfig, payload = {}) => {
   return { ok: true, messageId: info.messageId, sentWarning };
 });
 
+ipcMain.handle('set-folder-email-read-state', async (event, rawConfig, folderKey, uid, mailboxMap = {}, isRead) => {
+  const config = deserializeConfig(rawConfig || {});
+  const mailboxPath = getMailboxPath(folderKey, mailboxMap);
+  const uidNum = Number(uid);
+  if (!Number.isFinite(uidNum)) {
+    throw new Error('Invalid UID');
+  }
+
+  return withImapConnection(config, async (imap, entry) => {
+    try {
+      await openBoxOnConnection(imap, entry, mailboxPath, false);
+    } catch (err) {
+      throw new Error(`Failed to open ${mailboxPath}: ` + err.message);
+    }
+
+    return new Promise((resolve, reject) => {
+      const callback = (err) => {
+        if (err) reject(err);
+        else resolve(true);
+      };
+      if (isRead) {
+        imap.addFlags(uidNum, '\\Seen', callback);
+      } else {
+        imap.delFlags(uidNum, '\\Seen', callback);
+      }
+    });
+  });
+});
+
 ipcMain.handle('move-folder-email', async (event, rawConfig, sourceFolderKey, uid, mailboxMap = {}, targetFolderKey) => {
   const config = deserializeConfig(rawConfig || {});
   const sourcePath = getMailboxPath(sourceFolderKey, mailboxMap);

@@ -13,6 +13,13 @@ type InboxPanelProps = {
   isLoadingMore: boolean;
   showMailboxAttribution?: boolean;
   mailboxUsernameById?: Record<string, string>;
+  onReplyEmail: (email: EmailListItem) => void;
+  onReplyAllEmail: (email: EmailListItem) => void;
+  onForwardEmail: (email: EmailListItem) => void;
+  onMarkEmailAsUnread: (email: EmailListItem) => void;
+  onMoveEmailToJunk: (email: EmailListItem) => void;
+  onDeleteEmail: (email: EmailListItem) => void;
+  onArchiveEmail: (email: EmailListItem) => void;
 };
 
 function InboxPanel({
@@ -24,6 +31,13 @@ function InboxPanel({
   isLoadingMore,
   showMailboxAttribution,
   mailboxUsernameById,
+  onReplyEmail,
+  onReplyAllEmail,
+  onForwardEmail,
+  onMarkEmailAsUnread,
+  onMoveEmailToJunk,
+  onDeleteEmail,
+  onArchiveEmail,
 }: InboxPanelProps) {
   const [expandedThreadIds, setExpandedThreadIds] = useState<Set<string>>(() => new Set());
 
@@ -89,6 +103,13 @@ function InboxPanel({
                   onSelectEmail={onSelectEmail}
                   showMailboxAttribution={showMailboxAttribution}
                   mailboxUsernameById={mailboxUsernameById}
+                  onReplyEmail={onReplyEmail}
+                  onReplyAllEmail={onReplyAllEmail}
+                  onForwardEmail={onForwardEmail}
+                  onMarkEmailAsUnread={onMarkEmailAsUnread}
+                  onMoveEmailToJunk={onMoveEmailToJunk}
+                  onDeleteEmail={onDeleteEmail}
+                  onArchiveEmail={onArchiveEmail}
                 />
               </div>
 
@@ -105,6 +126,13 @@ function InboxPanel({
                         onSelectEmail={onSelectEmail}
                         showMailboxAttribution={showMailboxAttribution}
                         mailboxUsernameById={mailboxUsernameById}
+                        onReplyEmail={onReplyEmail}
+                        onReplyAllEmail={onReplyAllEmail}
+                        onForwardEmail={onForwardEmail}
+                        onMarkEmailAsUnread={onMarkEmailAsUnread}
+                        onMoveEmailToJunk={onMoveEmailToJunk}
+                        onDeleteEmail={onDeleteEmail}
+                        onArchiveEmail={onArchiveEmail}
                       />
                     </li>
                   ))}

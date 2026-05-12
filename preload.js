@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   sendMail: (config, payload) => ipcRenderer.invoke('send-mail', config, payload),
   moveFolderEmail: (config, sourceFolderKey, uid, mailboxMap, targetFolderKey) =>
     ipcRenderer.invoke('move-folder-email', config, sourceFolderKey, uid, mailboxMap, targetFolderKey),
+  setFolderEmailReadState: (config, folderKey, uid, mailboxMap, isRead) =>
+    ipcRenderer.invoke('set-folder-email-read-state', config, folderKey, uid, mailboxMap, isRead),
   onOpenSettings: (callback) => {
     const handler = () => callback();
     ipcRenderer.on('open-settings', handler);
