@@ -670,16 +670,89 @@ function App() {
         email.uid,
         mailbox.mailboxMap || {}
       );
-      setSelectedEmail({
+      let merged: EmailListItem = {
         ...content,
         uid: email.uid,
         folderKey,
         mailboxId: mailbox.id,
         selectionUid: email.selectionUid || String(email.uid),
         isThreadInjectedFromSent: Boolean(email.isThreadInjectedFromSent),
-      });
+      };
+      let statusAfterLoad = 'Email loaded.';
+
+      if (email.isUnread) {
+        try {
+          await mailApi.setFolderEmailReadState(
+            mailbox,
+            folderKey,
+            email.uid,
+            mailbox.mailboxMap || {},
+            true
+          );
+          merged = { ...merged, isUnread: false };
+
+          const folderView = selectedFolderRef.current;
+          const sameMailboxScope =
+            folderView.mailboxId === ALL_MAILBOXES_ID || folderView.mailboxId === mailbox.id;
+          const listShowsThisEmailFolder =
+            folderView.folderKey === folderKey ||
+            (folderView.folderKey === 'inbox' &&
+              folderKey === 'sent' &&
+              Boolean(email.isThreadInjectedFromSent));
+          const viewStillMatches = sameMailboxScope && listShowsThisEmailFolder;
+
+          function patchListForRead(list: EmailListItem[]): EmailListItem[] {
+            return list.map((item) =>
+              item.mailboxId === mailbox.id &&
+              String(item.uid) === String(email.uid) &&
+              item.folderKey === folderKey
+                ? { ...item, isUnread: false }
+                : item
+            );
+          }
+
+          if (viewStillMatches) {
+            setEmails((current) => patchListForRead(current));
+          }
+
+          const cache = emailsCacheRef.current;
+          const cacheKeysToPatch = new Set<string>([
+            getEmailCacheKey(mailbox.id, folderKey),
+            getEmailCacheKey(ALL_MAILBOXES_ID, folderKey),
+          ]);
+          if (folderKey === 'sent' && email.isThreadInjectedFromSent) {
+            cacheKeysToPatch.add(getEmailCacheKey(mailbox.id, 'inbox'));
+            cacheKeysToPatch.add(getEmailCacheKey(ALL_MAILBOXES_ID, 'inbox'));
+          }
+          for (const cacheKey of cacheKeysToPatch) {
+            const list = cache.get(cacheKey);
+            if (list) {
+              cache.set(cacheKey, patchListForRead(list));
+            }
+          }
+
+          if (FOLDER_COUNT_KEYS.includes(folderKey)) {
+            void mailApi
+              .fetchFolderUnreadCount(mailbox, folderKey, mailbox.mailboxMap || {})
+              .then((unreadCount) => {
+                setFolderCountsByMailbox((current) => ({
+                  ...current,
+                  [mailbox.id]: {
+                    ...(current[mailbox.id] || {}),
+                    [folderKey]: unreadCount,
+                  },
+                }));
+              })
+              .catch(() => undefined);
+          }
+        } catch (markReadError) {
+          statusAfterLoad = 'Error marking as read: ' + (markReadError as Error).message;
+        }
+      }
+
+      setSelectedEmail(merged);
       localStorage.setItem(getFolderUidStorageKey(mailbox.id, folderKey), String(email.uid));
-      setStatus('Email loaded.');
+      setStatus(statusAfterLoad);
     } catch (error) {
       setSelectedEmail({ error: 'Error loading email: ' + (error as Error).message });
       setStatus('Error loading email.');
