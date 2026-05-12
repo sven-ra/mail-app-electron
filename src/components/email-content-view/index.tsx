@@ -4,7 +4,11 @@ import { prepareEmailHtml } from '../prepareEmailHtml';
 import HtmlEmailFrame from '../html-email-frame';
 import PlaintextThread from '../plaintext-thread';
 import ReplyEditorDock from '../reply-editor-dock';
-import { decodeHeaderValue, normalizeThreadOrder, parsePlaintextThread } from '../../mail/plaintextThread';
+import {
+  decodeHeaderValue,
+  normalizeThreadOrder,
+  parsePlaintextThread,
+} from '../../mail/plaintextThread';
 import type { LoadedEmailContent, MailboxConfig, SelectedEmailState } from '../../types/mail';
 
 type EmailContentViewProps = {

@@ -12,7 +12,7 @@
 }
 
 .threadItem {
-  border: 1px solid var(--color-fg);
+  border-top: 1px solid var(--color-fg-step-5);
   margin-bottom: 8px;
   padding: 8px 10px;
 }
