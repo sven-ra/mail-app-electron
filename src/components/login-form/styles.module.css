@@ -5,11 +5,51 @@
   max-width: 560px;
 }
 
+.sectionTitle {
+  margin: 8px 0 0;
+  font-size: 1em;
+  font-weight: 600;
+}
+
 .field {
   display: grid;
-  grid-template-columns: 100px minmax(0, 1fr);
+  grid-template-columns: 140px minmax(0, 1fr);
   align-items: center;
   gap: 10px;
+}
+
+.fieldCheckbox {
+  grid-template-columns: 140px auto;
+  justify-items: start;
+}
+
+.checkboxRoot {
+  box-sizing: border-box;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-fg);
+  background: var(--color-bg);
+  cursor: pointer;
+}
+
+.checkboxRoot:focus-visible {
+  outline: 2px solid var(--color-fg);
+  outline-offset: 2px;
+}
+
+.checkboxRoot[data-disabled] {
+  opacity: var(--text-opacity-step-4);
+  cursor: default;
+}
+
+.checkboxIndicator {
+  color: var(--color-fg);
+  font-size: 12px;
+  line-height: 1;
 }
 
 .connectButton {

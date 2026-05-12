@@ -1,5 +1,7 @@
 export type FolderKey = 'inbox' | 'drafts' | 'sent' | 'junk' | 'bin' | 'archive';
 
+export type SmtpAuthMode = 'password' | 'oauth2';
+
 export interface FolderDefinition {
   key: FolderKey;
   label: string;
@@ -15,6 +17,19 @@ export interface MailboxConfig {
   password: string;
   mailboxMap?: MailboxMap;
   id?: string;
+  smtpHost?: string;
+  /** Ignored for SMTP transport; implicit TLS is always used. */
+  smtpSecure?: boolean;
+  smtpUsername?: string;
+  smtpPassword?: string;
+  /** When true (password SMTP), use IMAP `username` / `password` for SMTP auth. */
+  smtpUseImapCredentials?: boolean;
+  smtpAuthMode?: SmtpAuthMode;
+  smtpClientId?: string;
+  smtpClientSecret?: string;
+  smtpRefreshToken?: string;
+  smtpAccessToken?: string;
+  smtpOAuthUser?: string;
   [key: string]: unknown;
 }
 
@@ -36,11 +51,14 @@ export interface EmailListItem {
   dateRaw?: string;
   from?: string;
   to?: string;
-  isUnread?: boolean;
-  previewLines?: string[];
+  cc?: string;
+  bcc?: string;
+  replyTo?: string;
   messageId?: string;
   inReplyTo?: string;
   references?: string[];
+  isUnread?: boolean;
+  previewLines?: string[];
   mailboxId?: string;
   folderKey?: string;
   selectionUid?: string;
@@ -89,6 +107,30 @@ export interface EmailErrorState {
 }
 
 export type SelectedEmailState = LoadedEmailContent | EmailLoadingState | EmailErrorState | null;
+
+export interface OutboundAttachmentInput {
+  filename: string;
+  contentType?: string;
+  contentBase64: string;
+}
+
+export interface SendMailPayload {
+  to: string;
+  cc?: string;
+  bcc?: string;
+  subject: string;
+  text?: string;
+  html?: string;
+  inReplyTo?: string;
+  references?: string[];
+  attachments?: OutboundAttachmentInput[];
+}
+
+export interface SendMailResult {
+  ok: boolean;
+  messageId?: string;
+  sentWarning?: string;
+}
 
 export interface ThreadGroup {
   id: string;

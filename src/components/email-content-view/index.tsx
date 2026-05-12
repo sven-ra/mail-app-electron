@@ -5,13 +5,49 @@ import HtmlEmailFrame from '../html-email-frame';
 import PlaintextThread from '../plaintext-thread';
 import ReplyEditorDock from '../reply-editor-dock';
 import { decodeHeaderValue, normalizeThreadOrder, parsePlaintextThread } from '../../mail/plaintextThread';
-import type { LoadedEmailContent, SelectedEmailState } from '../../types/mail';
+import type { LoadedEmailContent, MailboxConfig, SelectedEmailState } from '../../types/mail';
 
 type EmailContentViewProps = {
   email: SelectedEmailState;
+  mailbox: MailboxConfig | null;
+  composeTo: string;
+  composeCc: string;
+  composeSubject: string;
+  onComposeChange: (field: 'to' | 'cc' | 'subject', value: string) => void;
+  composeBodyResetKey: number;
+  composeInitialBodyHtml: string;
+  onSend: (body: { html: string; text: string }) => void;
+  attachmentItems: { id: string; name: string }[];
+  onAddAttachments: (files: File[]) => void;
+  onRemoveAttachment: (id: string) => void;
+  sendDisabled?: boolean;
+  onReply: () => void;
+  onReplyAll: () => void;
+  onForward: () => void;
+  onArchive: () => void;
+  onDelete: () => void;
 };
 
-function EmailContentView({ email }: EmailContentViewProps) {
+function EmailContentView({
+  email,
+  mailbox,
+  composeTo,
+  composeCc,
+  composeSubject,
+  onComposeChange,
+  composeBodyResetKey,
+  composeInitialBodyHtml,
+  onSend,
+  attachmentItems,
+  onAddAttachments,
+  onRemoveAttachment,
+  sendDisabled,
+  onReply,
+  onReplyAll,
+  onForward,
+  onArchive,
+  onDelete,
+}: EmailContentViewProps) {
   const messageAreaRef = useRef<HTMLDivElement | null>(null);
 
   const preparedHtml = useMemo(() => {
@@ -81,8 +117,28 @@ function EmailContentView({ email }: EmailContentViewProps) {
   if (email.error) return <div>{email.error}</div>;
   const contentEmail = email as LoadedEmailContent;
 
+  const toolbarDisabled = !mailbox;
+  const moveDisabled = toolbarDisabled || !contentEmail.uid || !contentEmail.folderKey;
+
   return (
-    <>
+    <div className={styles.wrap}>
+      <div className={styles.toolbar}>
+        <button type="button" className={styles.toolbarButton} onClick={onReply} disabled={toolbarDisabled}>
+          Reply
+        </button>
+        <button type="button" className={styles.toolbarButton} onClick={onReplyAll} disabled={toolbarDisabled}>
+          Reply to all
+        </button>
+        <button type="button" className={styles.toolbarButton} onClick={onForward} disabled={toolbarDisabled}>
+          Forward
+        </button>
+        <button type="button" className={styles.toolbarButton} onClick={onArchive} disabled={moveDisabled}>
+          Archive
+        </button>
+        <button type="button" className={styles.toolbarButton} onClick={onDelete} disabled={moveDisabled}>
+          Delete
+        </button>
+      </div>
       <div className={styles.subjectRow}>
         <h3>{contentEmail.subject}</h3>
       </div>
@@ -102,8 +158,20 @@ function EmailContentView({ email }: EmailContentViewProps) {
           <PlaintextThread segments={threadSegments} email={contentEmail} />
         )}
       </div>
-      <ReplyEditorDock />
-    </>
+      <ReplyEditorDock
+        composeTo={composeTo}
+        composeCc={composeCc}
+        composeSubject={composeSubject}
+        onComposeChange={onComposeChange}
+        bodyResetKey={composeBodyResetKey}
+        initialBodyHtml={composeInitialBodyHtml}
+        onSend={onSend}
+        attachmentItems={attachmentItems}
+        onAddAttachments={onAddAttachments}
+        onRemoveAttachment={onRemoveAttachment}
+        sendDisabled={sendDisabled}
+      />
+    </div>
   );
 }
 

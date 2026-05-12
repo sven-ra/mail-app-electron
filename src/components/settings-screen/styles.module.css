@@ -43,15 +43,19 @@
 }
 
 .settingsCloseButton {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 25;
   width: fit-content;
-  text-align: left;
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-fg);
+  background: var(--color-bg);
+}
 
-  &:hover {
-    background-color: var(--color-bg-step-1);
-  }
+.settingsCloseButton:hover {
+  background-color: var(--color-bg-step-1);
 }
 
 .alertDialogOverlay {

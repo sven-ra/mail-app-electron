@@ -1,3 +1,29 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+  gap: 8px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.toolbarButton {
+  padding: 6px 10px;
+  border: 1px solid var(--color-fg);
+  background: var(--color-bg);
+  cursor: pointer;
+}
+
+.toolbarButton:disabled {
+  opacity: var(--text-opacity-step-4);
+  cursor: default;
+}
+
 .meta {
   margin-bottom: 8px;
 }

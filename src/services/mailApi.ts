@@ -1,4 +1,4 @@
-import type { EmailListItem, MailboxConfig, MailboxMap } from '../types/mail';
+import type { EmailListItem, MailboxConfig, MailboxMap, SendMailPayload, SendMailResult } from '../types/mail';
 
 type FolderEmailsOptions = { limit?: number; beforeUid?: number };
 type FolderEmailsResponse = {
@@ -70,6 +70,25 @@ export const mailApi = {
     mailboxMap: MailboxMap
   ): Promise<EmailListItem> {
     return callApiMethod('fetchFolderEmail', mailboxConfig, folderKey, uid, mailboxMap) as Promise<EmailListItem>;
+  },
+  sendMail(mailboxConfig: MailboxConfig, payload: SendMailPayload): Promise<SendMailResult> {
+    return callApiMethod('sendMail', mailboxConfig, payload) as Promise<SendMailResult>;
+  },
+  moveFolderEmail(
+    mailboxConfig: MailboxConfig,
+    sourceFolderKey: string,
+    uid: number | string,
+    mailboxMap: MailboxMap,
+    targetFolderKey: string
+  ): Promise<boolean> {
+    return callApiMethod(
+      'moveFolderEmail',
+      mailboxConfig,
+      sourceFolderKey,
+      uid,
+      mailboxMap,
+      targetFolderKey
+    ) as Promise<boolean>;
   },
   onOpenSettings(handler: () => void): (() => void) | undefined {
     const api = window.electronAPI;

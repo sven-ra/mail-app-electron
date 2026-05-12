@@ -6,7 +6,7 @@ import type { MailboxConfig } from '../../types/mail';
 
 type SettingsScreenProps = {
   config: MailboxConfig;
-  onConfigChange: (field: keyof MailboxConfig, value: string) => void;
+  onConfigChange: (field: keyof MailboxConfig, value: string | boolean) => void;
   onAddMailbox: () => void;
   onCloseSettings: () => void;
   mailboxes: MailboxConfig[];
@@ -27,10 +27,10 @@ function SettingsScreen({
 }: SettingsScreenProps) {
   return (
     <main className={styles.settingsLayout}>
+      <button type="button" className={styles.settingsCloseButton} onClick={onCloseSettings}>
+        Close settings
+      </button>
       <section className={styles.settingsSection}>
-        <button type="button" className={styles.settingsCloseButton} onClick={onCloseSettings}>
-          Close settings
-        </button>
         <h2>Add mailbox</h2>
         <LoginForm config={config} onConfigChange={onConfigChange} onConnect={onAddMailbox} />
       </section>
