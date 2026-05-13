@@ -44,6 +44,12 @@ function ReplyEditorDock({
   sendDisabled,
 }: ReplyEditorDockProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const editorInstanceRef = useRef<{ getHTML(): string; getText(): string } | null>(null);
+  const sendDisabledRef = useRef(sendDisabled);
+  const onSendRef = useRef(onSend);
+
+  sendDisabledRef.current = sendDisabled;
+  onSendRef.current = onSend;
 
   const editor = useEditor({
     extensions: [
@@ -61,8 +67,29 @@ function ReplyEditorDock({
       attributes: {
         class: styles.proseMirrorEditable,
       },
+      handleKeyDown: (_view, event) => {
+        if (
+          !event.metaKey ||
+          !event.shiftKey ||
+          (event.key !== 'd' && event.key !== 'D')
+        ) {
+          return false;
+        }
+        const ed = editorInstanceRef.current;
+        if (!ed || sendDisabledRef.current) return false;
+        event.preventDefault();
+        onSendRef.current({
+          html: ed.getHTML(),
+          text: ed.getText(),
+        });
+        return true;
+      },
     },
   });
+
+  useEffect(() => {
+    editorInstanceRef.current = editor;
+  }, [editor]);
 
   useEffect(() => {
     if (!editor) return;
