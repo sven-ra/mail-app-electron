@@ -13,12 +13,70 @@ import { interceptMailLinkActivation } from '../../mail/openEmailLinkExternally'
 import styles from './styles.module.css';
 import type { CidAttachmentEntry, LoadedEmailContent, PlaintextSegment } from '../../types/mail';
 
+const TEXT_LINK_REGEX = /\b(?:https?:\/\/|mailto:|www\.)[^\s<>"']+/gi;
+const TRAILING_LINK_PUNCTUATION = '.,!?;:)]}';
+
 function blurFocusIfInsideInboxPanel(): void {
   const active = document.activeElement;
   if (!(active instanceof HTMLElement)) return;
   if (active.closest('[data-inbox-panel]')) {
     active.blur();
   }
+}
+
+function trimTrailingLinkPunctuation(value: string): { linkText: string; trailingText: string } {
+  let linkText = value;
+  let trailingText = '';
+
+  while (linkText && TRAILING_LINK_PUNCTUATION.includes(linkText[linkText.length - 1])) {
+    trailingText = linkText[linkText.length - 1] + trailingText;
+    linkText = linkText.slice(0, -1);
+  }
+
+  return { linkText, trailingText };
+}
+
+function getPlaintextLinkHref(value: string): string {
+  if (/^www\./i.test(value)) {
+    return `https://${value}`;
+  }
+  return value;
+}
+
+function renderTextWithLinks(text: string, keyPrefix: string): React.ReactNode {
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  TEXT_LINK_REGEX.lastIndex = 0;
+  while ((match = TEXT_LINK_REGEX.exec(text)) !== null) {
+    const raw = match[0];
+    const { linkText, trailingText } = trimTrailingLinkPunctuation(raw);
+
+    if (!linkText) continue;
+
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+
+    nodes.push(
+      <a key={`${keyPrefix}-link-${match.index}`} href={getPlaintextLinkHref(linkText)}>
+        {linkText}
+      </a>
+    );
+
+    if (trailingText) {
+      nodes.push(trailingText);
+    }
+
+    lastIndex = match.index + raw.length;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length ? nodes : text;
 }
 
 function renderTextWithCidImages(text: string, cidMap: Map<string, CidAttachmentEntry>) {
@@ -29,12 +87,16 @@ function renderTextWithCidImages(text: string, cidMap: Map<string, CidAttachment
   }
 
   if (parts.length === 1 && parts[0].type === 'text') {
-    return parts[0].value;
+    return renderTextWithLinks(parts[0].value, 'text-only');
   }
 
   return parts.map((part, index) => {
     if (part.type === 'text') {
-      return <React.Fragment key={`text-${index}`}>{part.value}</React.Fragment>;
+      return (
+        <React.Fragment key={`text-${index}`}>
+          {renderTextWithLinks(part.value, `text-${index}`)}
+        </React.Fragment>
+      );
     }
 
     const entry = cidMap.get(part.value);
@@ -119,7 +181,13 @@ function PlaintextThread({ segments, email }: PlaintextThreadProps) {
                 onAuxClickCapture={(e) => interceptMailLinkActivation(e.nativeEvent)}
               />
             ) : (
-              <div className={styles.threadBlockBody}>{renderTextWithCidImages(segment.text, cidMap)}</div>
+              <div
+                className={styles.threadBlockBody}
+                onClickCapture={(e) => interceptMailLinkActivation(e.nativeEvent)}
+                onAuxClickCapture={(e) => interceptMailLinkActivation(e.nativeEvent)}
+              >
+                {renderTextWithCidImages(segment.text, cidMap)}
+              </div>
             )}
             {showOrphanImages ? (
               <div className={styles.threadBlockImages}>

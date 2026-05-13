@@ -67,7 +67,7 @@ function EmailContentView({
     return normalizeThreadOrder(parsePlaintextThread(contentEmail.text || ''));
   }, [email]);
 
-  const showHtml = Boolean(preparedHtml) && threadSegments.length <= 1;
+  const showHtml = Boolean(preparedHtml);
 
   useEffect(() => {
     const node = messageAreaRef.current;

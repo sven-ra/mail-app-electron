@@ -1093,6 +1093,14 @@ function decodeHtmlText(value) {
     .replace(/\u00a0/g, ' ');
 }
 
+function encodeHtmlAttribute(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function getHtmlAttribute(tag, name) {
   const escapedName = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(
@@ -1124,6 +1132,21 @@ function normalizePlainTextLinkHref(href) {
   return `https://${trimmed}`;
 }
 
+function normalizeHtmlLinkHrefs(html) {
+  return String(html || '').replace(/<a\b([^>]*)>/gi, (match, attrs) => {
+    const href = getHtmlAttribute(attrs, 'href');
+    if (!href) return match;
+    const normalizedHref = normalizePlainTextLinkHref(decodeHtmlText(href));
+    return match.replace(href, encodeHtmlAttribute(normalizedHref));
+  });
+}
+
+function hasRichHtmlBody(html) {
+  const value = String(html || '');
+  if (!value.trim()) return false;
+  return /<(a|strong|b|em|i|u|s|code|pre|blockquote|ul|ol|li|h[1-6]|img)\b/i.test(value);
+}
+
 function htmlToPlainText(html) {
   return String(html || '')
     .replace(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi, (match, attrs, content) => {
@@ -1153,6 +1176,12 @@ function getPlainTextBody(payload) {
   return String(payload.text || '');
 }
 
+function getHtmlBody(payload) {
+  const html = String(payload.html || '');
+  if (!hasRichHtmlBody(html)) return undefined;
+  return normalizeHtmlLinkHrefs(html);
+}
+
 ipcMain.handle('send-mail', async (event, rawConfig, payload = {}) => {
   const config = deserializeConfig(rawConfig || {});
   const from = getFromAddress(config);
@@ -1169,6 +1198,7 @@ ipcMain.handle('send-mail', async (event, rawConfig, payload = {}) => {
     bcc: payload.bcc || undefined,
     subject: payload.subject || '',
     text: getPlainTextBody(payload) || undefined,
+    html: getHtmlBody(payload),
     inReplyTo: payload.inReplyTo || undefined,
     references: Array.isArray(payload.references)
       ? payload.references.join(' ')

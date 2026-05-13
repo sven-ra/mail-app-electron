@@ -22,6 +22,14 @@ export type ReplyEditorDockProps = {
   sendDisabled?: boolean;
 };
 
+function normalizeLinkUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed || trimmed.startsWith('#') || /^[a-z][a-z\d+.-]*:/i.test(trimmed)) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
 function ReplyEditorDock({
   composeTo,
   composeCc,
@@ -41,6 +49,7 @@ function ReplyEditorDock({
     extensions: [
       StarterKit.configure({
         link: {
+          defaultProtocol: 'https',
           openOnClick: false,
         },
       }),
@@ -74,7 +83,7 @@ function ReplyEditorDock({
       return;
     }
 
-    editor.chain().focus().extendMarkRange('link').setLink({ href: normalizedUrl }).run();
+    editor.chain().focus().extendMarkRange('link').setLink({ href: normalizeLinkUrl(normalizedUrl) }).run();
   }
 
   function handleSendClick() {

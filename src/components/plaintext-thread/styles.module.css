@@ -55,6 +55,11 @@
   overflow-wrap: anywhere;
 }
 
+.threadBlockBody a {
+  color: inherit;
+  text-decoration: underline;
+}
+
 .threadBlockHtml {
   word-break: break-word;
   overflow-wrap: anywhere;
