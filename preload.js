@@ -29,4 +29,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   setUnreadBadgeCount: (count) => ipcRenderer.invoke('set-unread-badge-count', count),
   openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
+  showEmailNotification: (payload) => ipcRenderer.invoke('show-email-notification', payload),
 });

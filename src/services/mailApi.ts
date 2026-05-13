@@ -130,4 +130,9 @@ export const mailApi = {
     if (!api || typeof api.setUnreadBadgeCount !== 'function') return Promise.resolve();
     return api.setUnreadBadgeCount(count).then(() => undefined);
   },
+  showEmailNotification(payload: { title: string; body: string }): Promise<void> {
+    const api = window.electronAPI;
+    if (!api || typeof api.showEmailNotification !== 'function') return Promise.resolve();
+    return api.showEmailNotification(payload).then(() => undefined);
+  },
 };

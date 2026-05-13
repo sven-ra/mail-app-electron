@@ -9,7 +9,9 @@
     "start": "npm run build && electron .",
     "dev": "concurrently \"vite\" \"NODE_ENV=development electron .\"",
     "watch": "concurrently \"vite\" \"NODE_ENV=development electronmon .\"",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.2.7",
@@ -37,8 +39,18 @@
     "@vitejs/plugin-react": "^4.2.0",
     "concurrently": "^9.2.1",
     "electron": "^28.0.0",
+    "electron-builder": "^25.1.8",
     "electronmon": "^2.0.2",
     "typescript": "^6.0.3",
     "vite": "^5.0.0"
+  },
+  "build": {
+    "appId": "com.electron-mail-viewer.app",
+    "productName": "Electron Mail Viewer",
+    "directories": { "output": "release" },
+    "mac": {
+      "target": ["dmg"],
+      "category": "public.app-category.productivity"
+    }
   }
 }

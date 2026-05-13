@@ -133,6 +133,28 @@ function App() {
   const loadedEmailLimitRef = useRef(EMAIL_PAGE_SIZE);
   const emailsCacheRef = useRef<Map<string, EmailListItem[]>>(new Map());
   const pendingComposeModeRef = useRef<'reply' | 'replyAll' | 'forward'>('reply');
+  /** Per mailbox: newest inbox UID we have acknowledged (for poll notifications). */
+  const newestSeenInboxUidRef = useRef<Record<string, number>>({});
+
+  function syncNewestInboxUidSeenFromEmails(emails: EmailListItem[]): void {
+    const byMailbox = new Map<string, number>();
+    for (const email of emails) {
+      if (email.isThreadInjectedFromSent) continue;
+      if (email.folderKey && email.folderKey !== 'inbox') continue;
+      const id = email.mailboxId;
+      if (!id) continue;
+      const uid = Number(email.uid);
+      if (!Number.isFinite(uid)) continue;
+      const cur = byMailbox.get(id);
+      if (cur === undefined || uid > cur) {
+        byMailbox.set(id, uid);
+      }
+    }
+    const map = newestSeenInboxUidRef.current;
+    for (const [id, maxUid] of byMailbox) {
+      map[id] = maxUid;
+    }
+  }
 
   function getEmailCacheKey(mailboxId: string, folderKey: string): string {
     return `${mailboxId}:${folderKey}`;
@@ -346,6 +368,7 @@ function App() {
       loadedEmailLimitRef.current = EMAIL_PAGE_SIZE;
       emailsCacheRef.current.clear();
       setFolderCountsByMailbox({});
+      newestSeenInboxUidRef.current = {};
       localStorage.removeItem(LAST_SELECTED_MAILBOX_ID_KEY);
       localStorage.removeItem(LAST_SELECTED_FOLDER_KEY);
       mailboxIds.forEach((mailboxId) => {
@@ -512,6 +535,10 @@ function App() {
     emailsCacheRef.current.set(cacheKey, baseEmails);
     loadedEmailLimitRef.current = Math.max(EMAIL_PAGE_SIZE, baseEmails.length);
 
+    if (requestedFolderKey === 'inbox') {
+      syncNewestInboxUidSeenFromEmails(baseEmails);
+    }
+
     if (isStillCurrent()) {
       setEmails(baseEmails);
       isLoadingMoreRef.current = false;
@@ -572,6 +599,38 @@ function App() {
     }
   }
 
+  async function notifyNewInboxMailIfNeeded(mailbox: MailboxConfig): Promise<void> {
+    const inboxFolderKey = FOLDERS[0].key;
+    try {
+      const folderResult = getFolderEmailResult(
+        await mailApi.fetchFolderEmails(mailbox, inboxFolderKey, mailbox.mailboxMap || {}, {
+          limit: 1,
+        })
+      );
+      const email = folderResult.emails[0];
+      if (!email) return;
+      const uid = Number(email.uid);
+      if (!Number.isFinite(uid)) return;
+      const map = newestSeenInboxUidRef.current;
+      const prev = map[mailbox.id];
+      if (prev === undefined) {
+        map[mailbox.id] = uid;
+        return;
+      }
+      if (uid > prev) {
+        map[mailbox.id] = uid;
+        await mailApi.showEmailNotification({
+          title: String(email.subject ?? ''),
+          body: String(email.from ?? ''),
+        });
+      } else if (uid < prev) {
+        map[mailbox.id] = uid;
+      }
+    } catch {
+      // Poll noise should not surface as status errors.
+    }
+  }
+
   async function pollAllMailboxesForNewEmails(): Promise<void> {
     const inboxFolderKey = FOLDERS[0].key;
     const current = selectedFolderRef.current;
@@ -579,6 +638,8 @@ function App() {
     await Promise.allSettled(
       mailboxes.map((mailbox) => refreshMailboxFolderCounts(mailbox, [inboxFolderKey]))
     );
+
+    await Promise.allSettled(mailboxes.map((mailbox) => notifyNewInboxMailIfNeeded(mailbox)));
 
     if (!current.mailboxId || current.folderKey !== inboxFolderKey) return;
 

@@ -67,6 +67,7 @@ export interface ElectronApi {
   onOpenSettings: (callback: () => void) => OpenSettingsUnsubscribe;
   setUnreadBadgeCount: (count: number) => Promise<boolean>;
   openExternalUrl: (url: string) => Promise<boolean>;
+  showEmailNotification: (payload: { title: string; body: string }) => Promise<boolean>;
 }
 
 declare global {

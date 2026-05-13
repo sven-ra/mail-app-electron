@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, safeStorage, Menu, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, safeStorage, Menu, shell, Notification } = require('electron');
 const path = require('path');
 const Store = require('electron-store');
 const Imap = require('imap');
@@ -317,6 +317,26 @@ ipcMain.handle('open-external-url', async (event, rawUrl) => {
   if (!isHttpHttpsMailtoUrl(url)) return false;
   await shell.openExternal(url);
   return true;
+});
+
+ipcMain.handle('show-email-notification', (event, payload) => {
+  if (!Notification.isSupported()) return false;
+  const title = typeof payload?.title === 'string' ? payload.title.trim() : '';
+  const body = typeof payload?.body === 'string' ? payload.body.trim() : '';
+  if (!title && !body) return false;
+  try {
+    const n = new Notification({ title, body });
+    n.on('click', () => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    });
+    n.show();
+    return true;
+  } catch {
+    return false;
+  }
 });
 
 // Persistent IMAP connection pool: keyed by host|username so each mailbox
@@ -1045,6 +1065,94 @@ function appendRawToSent(config, rawBuffer) {
   );
 }
 
+function decodeHtmlEntity(entity) {
+  const named = {
+    amp: '&',
+    gt: '>',
+    lt: '<',
+    quot: '"',
+    apos: "'",
+    nbsp: ' ',
+  };
+  const key = String(entity || '').toLowerCase();
+  if (named[key]) return named[key];
+  if (key.startsWith('#x')) {
+    const code = Number.parseInt(key.slice(2), 16);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : `&${entity};`;
+  }
+  if (key.startsWith('#')) {
+    const code = Number.parseInt(key.slice(1), 10);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : `&${entity};`;
+  }
+  return `&${entity};`;
+}
+
+function decodeHtmlText(value) {
+  return String(value || '')
+    .replace(/&([^;\s]+);/g, (match, entity) => decodeHtmlEntity(entity))
+    .replace(/\u00a0/g, ' ');
+}
+
+function getHtmlAttribute(tag, name) {
+  const escapedName = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(
+    `(?:^|\\s)${escapedName}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`,
+    'i'
+  );
+  const match = pattern.exec(String(tag || ''));
+  if (!match) return '';
+  return match[1] || match[2] || match[3] || '';
+}
+
+function stripHtmlToPlainText(html) {
+  return decodeHtmlText(
+    String(html || '')
+      .replace(/<\s*br\s*\/?>/gi, '\n')
+      .replace(/<\/\s*(p|div|li|tr|h[1-6]|blockquote)\s*>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+  )
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function normalizePlainTextLinkHref(href) {
+  const trimmed = String(href || '').trim();
+  if (!trimmed || trimmed.startsWith('#') || /^[a-z][a-z\d+.-]*:/i.test(trimmed)) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
+function htmlToPlainText(html) {
+  return String(html || '')
+    .replace(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi, (match, attrs, content) => {
+      const label = stripHtmlToPlainText(content);
+      const href = normalizePlainTextLinkHref(decodeHtmlText(getHtmlAttribute(attrs, 'href')));
+      if (!href) return label;
+      if (!label || label === href) return href;
+      return `${label}: ${href}`;
+    })
+    .replace(/<\/\s*a\s*>/gi, '')
+    .replace(/<a\b([^>]*)>/gi, (match, attrs) => {
+      return normalizePlainTextLinkHref(decodeHtmlText(getHtmlAttribute(attrs, 'href')));
+    })
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\/\s*(p|div|li|tr|h[1-6]|blockquote)\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&([^;\s]+);/g, (match, entity) => decodeHtmlEntity(entity))
+    .replace(/\u00a0/g, ' ')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function getPlainTextBody(payload) {
+  const htmlText = htmlToPlainText(payload.html);
+  if (htmlText.trim()) return htmlText;
+  return String(payload.text || '');
+}
+
 ipcMain.handle('send-mail', async (event, rawConfig, payload = {}) => {
   const config = deserializeConfig(rawConfig || {});
   const from = getFromAddress(config);
@@ -1060,8 +1168,7 @@ ipcMain.handle('send-mail', async (event, rawConfig, payload = {}) => {
     cc: payload.cc || undefined,
     bcc: payload.bcc || undefined,
     subject: payload.subject || '',
-    text: payload.text || undefined,
-    html: payload.html || undefined,
+    text: getPlainTextBody(payload) || undefined,
     inReplyTo: payload.inReplyTo || undefined,
     references: Array.isArray(payload.references)
       ? payload.references.join(' ')
