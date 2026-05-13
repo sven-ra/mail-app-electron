@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react';
 import type { MailboxConfig } from '../types/mail';
 
+const MAILBOX_POLL_INTERVAL_MS = 30_000;
+
 type UseFolderPollingArgs = {
   enabled: boolean;
   selectedMailboxId: string | null;
@@ -20,6 +22,7 @@ export function useFolderPolling({
 }: UseFolderPollingArgs): void {
   const onPollRef = useRef(onPoll);
   const onErrorRef = useRef(onError);
+  const isPollingRef = useRef(false);
 
   useEffect(() => {
     onPollRef.current = onPoll;
@@ -27,15 +30,23 @@ export function useFolderPolling({
   }, [onPoll, onError]);
 
   useEffect(() => {
-    if (!enabled || !selectedMailboxId || !selectedFolder) {
+    if (!enabled || !selectedMailboxId || !selectedFolder || !mailboxes.length) {
       return undefined;
     }
 
     const intervalId = window.setInterval(() => {
-      onPollRef.current().catch((error) => {
-        onErrorRef.current(error);
-      });
-    }, 60000);
+      if (isPollingRef.current) return;
+      isPollingRef.current = true;
+
+      onPollRef
+        .current()
+        .catch((error) => {
+          onErrorRef.current(error);
+        })
+        .finally(() => {
+          isPollingRef.current = false;
+        });
+    }, MAILBOX_POLL_INTERVAL_MS);
 
     return () => {
       window.clearInterval(intervalId);

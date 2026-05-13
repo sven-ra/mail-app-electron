@@ -572,6 +572,23 @@ function App() {
     }
   }
 
+  async function pollAllMailboxesForNewEmails(): Promise<void> {
+    const inboxFolderKey = FOLDERS[0].key;
+    const current = selectedFolderRef.current;
+
+    await Promise.allSettled(
+      mailboxes.map((mailbox) => refreshMailboxFolderCounts(mailbox, [inboxFolderKey]))
+    );
+
+    if (!current.mailboxId || current.folderKey !== inboxFolderKey) return;
+
+    await loadFolder(current.mailboxId, inboxFolderKey, undefined, {
+      resetSelection: false,
+      restoreSelectionFromStorage: false,
+      showLoadedStatus: false,
+    });
+  }
+
   async function handleLoadMoreEmails(): Promise<void> {
     if (selectedMailboxId === ALL_MAILBOXES_ID) return;
     if (isLoadingMoreRef.current || !inboxPagination.hasMore) return;
@@ -1188,16 +1205,11 @@ function App() {
   });
 
   useFolderPolling({
-    enabled: loggedIn && currentPage === 'inbox',
+    enabled: loggedIn,
     selectedMailboxId,
     selectedFolder,
     mailboxes,
-    onPoll: () =>
-      loadFolder(selectedMailboxId, selectedFolder, undefined, {
-        resetSelection: false,
-        restoreSelectionFromStorage: false,
-        showLoadedStatus: false,
-      }),
+    onPoll: pollAllMailboxesForNewEmails,
     onError: (error) => {
       setStatus('Error: ' + error.message);
     },
