@@ -12,6 +12,15 @@
   font-size: var(--font-size-body);
   line-height: 1;
 
+  &.variantGhost {
+    border: none;
+    background: transparent;
+  }
+
+  &.variantRounded {
+    border-radius: 2px;
+  }
+
   &:disabled {
     opacity: var(--text-opacity-step-4);
     cursor: default;

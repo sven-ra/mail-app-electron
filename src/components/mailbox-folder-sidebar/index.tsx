@@ -1,4 +1,5 @@
 import React from 'react';
+import Button from '../button';
 import styles from './styles.module.css';
 import type { FolderDefinition, FolderKey, MailboxConfig } from '../../types/mail';
 
@@ -30,23 +31,26 @@ function MailboxFolderSidebar({
   return (
     <section className={styles.foldersSection}>
       <div className={styles.mailboxGroup}>
-        <button
+        <Button
           type="button"
-          className={`${styles.folderButton} ${
+          size="md"
+          variant={['ghost', 'rounded']}
+          labelClassName={styles.folderButtonLabel}
+          className={`${styles.folderNavButton} ${
             selectedMailboxId === allMailboxesId ? styles.folderButtonActive : ''
           }`}
           onClick={onSelectAllMailboxes}
         >
-          <span className={styles.folderButtonContent}>
-            <span>all inboxes</span>
-            {allFolderCount > 0 && <span>{allFolderCount}</span>}
-          </span>
-        </button>
+          all inboxes
+          {allFolderCount > 0 && <span>{allFolderCount}</span>}
+        </Button>
       </div>
       {mailboxes.map((mailbox) => (
         <div key={mailbox.id} className={styles.mailboxGroup}>
-          <h3 className={styles.mailboxTitle}>{mailbox.username}</h3>
-          <ul className={styles.folderList}>
+          <h3 id={`mailbox-heading-${mailbox.id}`} className={styles.mailboxTitle}>
+            {mailbox.username}
+          </h3>
+          <nav className={styles.folderNav} aria-labelledby={`mailbox-heading-${mailbox.id}`}>
             {folders.map((folder) => {
               const isActive = selectedMailboxId === mailbox.id && selectedFolder === folder.key;
               const folderCount = folderCountsByMailbox[mailbox.id]?.[folder.key];
@@ -55,21 +59,21 @@ function MailboxFolderSidebar({
                 Number.isFinite(folderCount) &&
                 folderCount > 0;
               return (
-                <li key={`${mailbox.id}:${folder.key}`}>
-                  <button
-                    type="button"
-                    className={`${styles.folderButton} ${isActive ? styles.folderButtonActive : ''}`}
-                    onClick={() => onSelectFolder(mailbox.id, folder.key)}
-                  >
-                    <span className={styles.folderButtonContent}>
-                      <span>{folder.label}</span>
-                      {shouldShowFolderCount && <span>{folderCount}</span>}
-                    </span>
-                  </button>
-                </li>
+                <Button
+                  key={`${mailbox.id}:${folder.key}`}
+                  type="button"
+                  size="md"
+                  variant={['ghost', 'rounded']}
+                  labelClassName={styles.folderButtonLabel}
+                  className={`${styles.folderNavButton} ${isActive ? styles.folderButtonActive : ''}`}
+                  onClick={() => onSelectFolder(mailbox.id, folder.key)}
+                >
+                  {folder.label}
+                  {shouldShowFolderCount && <span>{folderCount}</span>}
+                </Button>
               );
             })}
-          </ul>
+          </nav>
         </div>
       ))}
     </section>
