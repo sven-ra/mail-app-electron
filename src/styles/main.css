@@ -8,6 +8,14 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Simplon Mono';
+  src: url('../webfonts/Simplon Mono.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   --font-size-body: 12px;
   --font-size-small: 10px;
@@ -15,6 +23,8 @@
   --text-opacity-step-2: 0.85;
   --text-opacity-step-3: 0.7;
   --text-opacity-step-4: 0.55;
+  --font-family-simplon-mono: 'Simplon Mono', monospace;
+  --font-family-gt-pressura-mono: 'GT Pressura Mono', monospace;
 }
 
 :root[data-theme='light'] {
@@ -31,7 +41,7 @@
 }
 
 :root[data-theme='dark'] {
-  --color-bg: #000;
+  --color-bg: #040504;
   --color-fg: #fff;
   --color-bg-step-1: rgba(255, 255, 255, 0.08);
   --color-bg-step-2: rgba(255, 255, 255, 0.13);
@@ -46,7 +56,8 @@
 }
 
 body {
-  font-family: 'GT Pressura Mono', monospace;
+  font-family: var(--font-family-simplon-mono);
+  /* font-family: var(--font-family-gt-pressura-mono); */
   font-size: var(--font-size-body);
   color: var(--color-fg);
   background: var(--color-bg);

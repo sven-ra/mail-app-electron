@@ -17,12 +17,12 @@
 
 .threadItem {
   border-top: 1px solid var(--color-fg-step-5);
-  margin-bottom: 8px;
-  padding: 8px 2px;
+  padding: 8px 2px 16px;
 }
 
 .threadItemActive {
   border-color: var(--color-fg);
+  background: var(--color-bg-step-1);
 }
 
 .threadSummary {
