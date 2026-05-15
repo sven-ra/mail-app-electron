@@ -20,6 +20,8 @@ export type ReplyEditorDockProps = {
   onAddAttachments: (files: File[]) => void;
   onRemoveAttachment: (id: string) => void;
   sendDisabled?: boolean;
+  composeDockFocused?: boolean;
+  onEscapeFromEditor?: () => void;
 };
 
 function normalizeLinkUrl(url: string): string {
@@ -42,14 +44,18 @@ function ReplyEditorDock({
   onAddAttachments,
   onRemoveAttachment,
   sendDisabled,
+  composeDockFocused = false,
+  onEscapeFromEditor,
 }: ReplyEditorDockProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const editorInstanceRef = useRef<{ getHTML(): string; getText(): string } | null>(null);
   const sendDisabledRef = useRef(sendDisabled);
   const onSendRef = useRef(onSend);
+  const onEscapeFromEditorRef = useRef(onEscapeFromEditor);
 
   sendDisabledRef.current = sendDisabled;
   onSendRef.current = onSend;
+  onEscapeFromEditorRef.current = onEscapeFromEditor;
 
   const editor = useEditor({
     extensions: [
@@ -68,6 +74,10 @@ function ReplyEditorDock({
         class: styles.proseMirrorEditable,
       },
       handleKeyDown: (_view, event) => {
+        if (event.key === 'Escape') {
+          onEscapeFromEditorRef.current?.();
+          return true;
+        }
         if (
           !event.metaKey ||
           !event.shiftKey ||
@@ -94,7 +104,6 @@ function ReplyEditorDock({
   useEffect(() => {
     if (!editor) return;
     editor.commands.setContent(initialBodyHtml || '<p></p>');
-    editor.commands.focus('end');
   }, [editor, bodyResetKey, initialBodyHtml]);
 
   function handleSetLink() {
@@ -129,7 +138,10 @@ function ReplyEditorDock({
   }
 
   return (
-    <div className={styles.editorDock}>
+    <div
+      className={`${styles.editorDock} ${composeDockFocused ? styles.editorDockFocused : ''}`}
+      data-mail-compose-dock
+    >
       <div className={styles.composeHeader}>
         <label className={styles.composeField}>
           <span>To:</span>
@@ -228,7 +240,7 @@ function ReplyEditorDock({
             Unlink
           </Button>
         </div>
-        <div className={styles.editorContent}>
+        <div className={styles.editorContent} data-mail-compose-editor>
           <EditorContent editor={editor} />
         </div>
         <Button

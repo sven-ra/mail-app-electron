@@ -30,6 +30,19 @@
   user-select: none;
 }
 
+.mailColumn {
+  outline: none;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mailColumn[data-mail-column-active='true'] {
+  background-color: var(--color-bg-step-1);
+}
+
 .contentSection {
   position: relative;
   min-width: 0;

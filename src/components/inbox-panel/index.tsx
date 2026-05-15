@@ -1,13 +1,23 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import type { UIEvent } from 'react';
 import styles from './styles.module.css';
 import InboxEmailRow from '../inbox-email-row';
+import {
+  buildVisibleInboxEmails,
+  findThreadIdForEmail,
+  pickVisibleInboxNeighbor,
+  shouldExpandThreadForEmail,
+} from '../../mail/inboxListNavigation';
+import { useColumnArrowNavigation } from '../../hooks/useColumnArrowNavigation';
+import { useInboxListDeleteShortcut } from '../../hooks/useInboxListDeleteShortcut';
+import { useScrollToDataAttribute } from '../../hooks/useScrollToDataAttribute';
 import type { EmailListItem, ThreadGroup } from '../../types/mail';
 
 type InboxPanelProps = {
   title: string;
   threadGroups: ThreadGroup[];
   selectedEmailUid: string | null;
+  isColumnFocused?: boolean;
   onSelectEmail: (email: EmailListItem) => void;
   onLoadMore?: () => void;
   isLoadingMore: boolean;
@@ -26,6 +36,7 @@ function InboxPanel({
   title,
   threadGroups,
   selectedEmailUid,
+  isColumnFocused = false,
   onSelectEmail,
   onLoadMore,
   isLoadingMore,
@@ -41,6 +52,11 @@ function InboxPanel({
 }: InboxPanelProps) {
   const [expandedThreadIds, setExpandedThreadIds] = useState<Set<string>>(() => new Set());
 
+  const visibleEmails = useMemo(
+    () => buildVisibleInboxEmails(threadGroups, expandedThreadIds, selectedEmailUid),
+    [threadGroups, expandedThreadIds, selectedEmailUid]
+  );
+
   function toggleThread(threadId: string): void {
     setExpandedThreadIds((current) => {
       const next = new Set(current);
@@ -53,6 +69,18 @@ function InboxPanel({
     });
   }
 
+  const expandThreadForEmail = useCallback((email: EmailListItem) => {
+    if (!shouldExpandThreadForEmail(threadGroups, email)) return;
+    const threadId = findThreadIdForEmail(threadGroups, email);
+    if (!threadId) return;
+    setExpandedThreadIds((current) => {
+      if (current.has(threadId)) return current;
+      const next = new Set(current);
+      next.add(threadId);
+      return next;
+    });
+  }, [threadGroups]);
+
   function handleScroll(event: UIEvent<HTMLElement>): void {
     if (!onLoadMore) return;
 
@@ -62,6 +90,38 @@ function InboxPanel({
       onLoadMore();
     }
   }
+
+  const resolveNeighbor = useCallback(
+    (direction: 'up' | 'down') => pickVisibleInboxNeighbor(visibleEmails, selectedEmailUid, direction),
+    [visibleEmails, selectedEmailUid]
+  );
+
+  const handleNavigate = useCallback(
+    (email: EmailListItem) => {
+      expandThreadForEmail(email);
+      void onSelectEmail(email);
+    },
+    [expandThreadForEmail, onSelectEmail]
+  );
+
+  useColumnArrowNavigation({
+    enabled: isColumnFocused,
+    resolveNeighbor,
+    onNavigate: handleNavigate,
+  });
+
+  useInboxListDeleteShortcut({
+    enabled: isColumnFocused,
+    threadGroups,
+    selectedEmailUid,
+    onDeleteEmail,
+  });
+
+  useScrollToDataAttribute({
+    enabled: isColumnFocused,
+    attribute: 'data-selection-uid',
+    value: selectedEmailUid,
+  });
 
   return (
     <section className={styles.inboxSection} data-inbox-panel onScroll={handleScroll}>

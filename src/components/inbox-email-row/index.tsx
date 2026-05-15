@@ -90,6 +90,7 @@ function InboxEmailRow({
       <button
         type="button"
         className={`${styles.itemButton} ${isActive ? styles.itemButtonActive : ''}`}
+        data-selection-uid={rowEmailUid}
         onClick={() => onSelectEmail(email)}
       >
         <div className={styles.rowDate}>{formatRowDate(email.dateRaw || email.date)}</div>

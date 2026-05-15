@@ -40,7 +40,9 @@ import { mailApi } from './services/mailApi';
 import { useFolderPolling } from './hooks/useFolderPolling';
 import { useInboxResize } from './hooks/useInboxResize';
 import { useMailboxBootstrap } from './hooks/useMailboxBootstrap';
+import { useMailColumnFocus } from './hooks/useMailColumnFocus';
 import { useThemeMode } from './hooks/useThemeMode';
+import { targetIsEditableField } from './mail/keyboard';
 import type {
   EmailListItem,
   FolderCountsByMailbox,
@@ -70,14 +72,6 @@ const COMPOSE_INITIAL = {
 };
 
 type ComposeState = typeof COMPOSE_INITIAL;
-
-function targetIsEditableField(target: EventTarget | null): boolean {
-  if (!target || !(target instanceof HTMLElement)) return false;
-  if (target.isContentEditable) return true;
-  if (target.closest('[contenteditable="true"]')) return true;
-  const tag = target.tagName;
-  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
-}
 
 function base64ToUint8Array(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -183,6 +177,57 @@ function App() {
     layoutColumnStyle,
   } = useInboxResize();
   const { toggleThemeMode } = useThemeMode();
+  const inboxColumnFocusEnabled = loggedIn && currentPage === 'inbox';
+  const [messageAreaFocused, setMessageAreaFocused] = useState(false);
+  const [composeDockFocused, setComposeDockFocused] = useState(false);
+  const { focusedColumn, focusColumn, selectColumn, getColumnProps } = useMailColumnFocus(
+    inboxColumnFocusEnabled,
+    {
+      onComposeEditorFocused: () => {
+        setMessageAreaFocused(false);
+        setComposeDockFocused(true);
+      },
+    }
+  );
+
+  const contentColumnActive =
+    focusedColumn === 'content' && !messageAreaFocused && !composeDockFocused;
+
+  const focusMailColumn = useCallback(
+    (column: Parameters<typeof focusColumn>[0]) => {
+      setMessageAreaFocused(false);
+      setComposeDockFocused(false);
+      focusColumn(column);
+    },
+    [focusColumn]
+  );
+
+  const handleContentColumnFocus = useCallback(
+    (event: React.FocusEvent) => {
+      selectColumn('content', { focusDom: false });
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+
+      const inComposeDock = Boolean(target.closest('[data-mail-compose-dock]'));
+      const inMessage = Boolean(target.closest('[data-mail-message-area]'));
+
+      setComposeDockFocused(inComposeDock);
+      setMessageAreaFocused(inMessage && !inComposeDock);
+    },
+    [selectColumn]
+  );
+
+  const handleMessageAreaFocus = useCallback(() => {
+    selectColumn('content', { focusDom: false });
+    setMessageAreaFocused(true);
+  }, [selectColumn]);
+
+  useEffect(() => {
+    if (focusedColumn !== 'content') {
+      setMessageAreaFocused(false);
+      setComposeDockFocused(false);
+    }
+  }, [focusedColumn]);
 
   const threadGroups = useMemo(() => groupEmailsByThread(emails), [emails]);
   const validFolderKeys = useMemo(() => new Set(FOLDERS.map((folder) => folder.key)), []);
@@ -1290,42 +1335,53 @@ function App() {
 
       {loggedIn && currentPage === 'inbox' && (
         <main className={`${styles.mainLayout} ${isResizingColumns ? styles.mainLayoutResizing : ''}`} style={layoutColumnStyle}>
-          <MailboxFolderSidebar
-            mailboxes={mailboxes}
-            selectedMailboxId={selectedMailboxId}
-            selectedFolder={selectedFolder}
-            folderCountsByMailbox={folderCountsByMailbox}
-            allFolderCount={allFolderCount}
-            folderCountKeys={FOLDER_COUNT_KEYS}
-            folders={FOLDERS}
-            allMailboxesId={ALL_MAILBOXES_ID}
-            onSelectAllMailboxes={handleSelectAllMailboxes}
-            onSelectFolder={handleSelectFolder}
-          />
+          <div {...getColumnProps('folders')} className={styles.mailColumn}>
+            <MailboxFolderSidebar
+              mailboxes={mailboxes}
+              selectedMailboxId={selectedMailboxId}
+              selectedFolder={selectedFolder}
+              folderCountsByMailbox={folderCountsByMailbox}
+              allFolderCount={allFolderCount}
+              folderCountKeys={FOLDER_COUNT_KEYS}
+              folders={FOLDERS}
+              allMailboxesId={ALL_MAILBOXES_ID}
+              isColumnFocused={focusedColumn === 'folders'}
+              onSelectAllMailboxes={handleSelectAllMailboxes}
+              onSelectFolder={handleSelectFolder}
+            />
+          </div>
           <ColumnResizer
             isResizing={isResizingFolders}
             ariaLabel={null}
             onPointerDown={handleStartFoldersResize}
           />
-          <InboxPanel
-            title={FOLDERS.find((folder) => folder.key === selectedFolder)?.label || 'INBOX'}
-            threadGroups={threadGroups}
-            selectedEmailUid={selectedEmailUid}
-            onSelectEmail={handleSelectEmail}
-            onLoadMore={handleLoadMoreEmails}
-            isLoadingMore={inboxPagination.isLoadingMore}
-            showMailboxAttribution={selectedMailboxId === ALL_MAILBOXES_ID}
-            mailboxUsernameById={mailboxUsernameById}
-            onReplyEmail={handleContextMenuReply}
-            onReplyAllEmail={handleContextMenuReplyAll}
-            onForwardEmail={handleContextMenuForward}
-            onMarkEmailAsUnread={handleMarkEmailAsUnread}
-            onMoveEmailToJunk={handleMoveEmailToJunk}
-            onDeleteEmail={handleDeleteEmail}
-            onArchiveEmail={handleArchiveEmail}
-          />
+          <div {...getColumnProps('list')} className={styles.mailColumn}>
+            <InboxPanel
+              title={FOLDERS.find((folder) => folder.key === selectedFolder)?.label || 'INBOX'}
+              threadGroups={threadGroups}
+              selectedEmailUid={selectedEmailUid}
+              isColumnFocused={focusedColumn === 'list'}
+              onSelectEmail={handleSelectEmail}
+              onLoadMore={handleLoadMoreEmails}
+              isLoadingMore={inboxPagination.isLoadingMore}
+              showMailboxAttribution={selectedMailboxId === ALL_MAILBOXES_ID}
+              mailboxUsernameById={mailboxUsernameById}
+              onReplyEmail={handleContextMenuReply}
+              onReplyAllEmail={handleContextMenuReplyAll}
+              onForwardEmail={handleContextMenuForward}
+              onMarkEmailAsUnread={handleMarkEmailAsUnread}
+              onMoveEmailToJunk={handleMoveEmailToJunk}
+              onDeleteEmail={handleDeleteEmail}
+              onArchiveEmail={handleArchiveEmail}
+            />
+          </div>
           <ColumnResizer isResizing={isResizingInbox} onPointerDown={handleStartInboxResize} />
-          <section className={styles.contentSection}>
+          <section
+            {...getColumnProps('content')}
+            data-mail-column-active={contentColumnActive ? 'true' : 'false'}
+            className={`${styles.contentSection} ${styles.mailColumn}`}
+            onFocusCapture={handleContentColumnFocus}
+          >
             <EmailContentView
               email={selectedEmail}
               mailbox={contentMailbox}
@@ -1345,6 +1401,10 @@ function App() {
               onForward={handleToolbarForward}
               onArchive={() => handleMessageMove('archive')}
               onDelete={() => handleMessageMove('bin')}
+              messageAreaFocused={messageAreaFocused}
+              composeDockFocused={composeDockFocused}
+              onMessageAreaFocus={handleMessageAreaFocus}
+              onComposeEditorEscape={() => focusMailColumn('content')}
             />
           </section>
         </main>

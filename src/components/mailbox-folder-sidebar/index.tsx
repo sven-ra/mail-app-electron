@@ -1,6 +1,15 @@
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
 import Button from '../button';
 import styles from './styles.module.css';
+import {
+  applyFolderSidebarEntry,
+  buildFolderSidebarEntries,
+  findActiveFolderSidebarEntry,
+  getFolderSidebarNavKey,
+  pickFolderSidebarNeighbor,
+} from '../../mail/folderSidebar';
+import { useColumnArrowNavigation } from '../../hooks/useColumnArrowNavigation';
+import { useScrollToDataAttribute } from '../../hooks/useScrollToDataAttribute';
 import type { FolderDefinition, FolderKey, MailboxConfig } from '../../types/mail';
 
 type MailboxFolderSidebarProps = {
@@ -12,9 +21,15 @@ type MailboxFolderSidebarProps = {
   folderCountKeys: FolderKey[];
   folders: FolderDefinition[];
   allMailboxesId: string;
+  isColumnFocused?: boolean;
   onSelectAllMailboxes: () => void;
   onSelectFolder: (mailboxId: string, folderKey: FolderKey) => void;
 };
+
+function FolderUnreadCount({ count }: { count: number }) {
+  if (count <= 0) return null;
+  return <span className={styles.folderUnreadCount}>[{count}]</span>;
+}
 
 function MailboxFolderSidebar({
   mailboxes,
@@ -25,9 +40,51 @@ function MailboxFolderSidebar({
   folderCountKeys,
   folders,
   allMailboxesId,
+  isColumnFocused = false,
   onSelectAllMailboxes,
   onSelectFolder,
 }: MailboxFolderSidebarProps) {
+  const sidebarEntries = useMemo(
+    () => buildFolderSidebarEntries(mailboxes, folders),
+    [mailboxes, folders]
+  );
+
+  const activeEntry = useMemo(
+    () => findActiveFolderSidebarEntry(sidebarEntries, selectedMailboxId, selectedFolder, allMailboxesId),
+    [sidebarEntries, selectedMailboxId, selectedFolder, allMailboxesId]
+  );
+
+  const resolveNeighbor = useCallback(
+    (direction: 'up' | 'down') =>
+      pickFolderSidebarNeighbor(
+        sidebarEntries,
+        selectedMailboxId,
+        selectedFolder,
+        allMailboxesId,
+        direction
+      ),
+    [sidebarEntries, selectedMailboxId, selectedFolder, allMailboxesId]
+  );
+
+  const handleNavigate = useCallback(
+    (entry: (typeof sidebarEntries)[number]) => {
+      applyFolderSidebarEntry(entry, { onSelectAllMailboxes, onSelectFolder });
+    },
+    [onSelectAllMailboxes, onSelectFolder]
+  );
+
+  useColumnArrowNavigation({
+    enabled: isColumnFocused,
+    resolveNeighbor,
+    onNavigate: handleNavigate,
+  });
+
+  useScrollToDataAttribute({
+    enabled: isColumnFocused,
+    attribute: 'data-folder-nav-key',
+    value: activeEntry ? getFolderSidebarNavKey(activeEntry, allMailboxesId) : null,
+  });
+
   return (
     <section className={styles.foldersSection}>
       <div className={styles.mailboxGroup}>
@@ -39,10 +96,11 @@ function MailboxFolderSidebar({
           className={`${styles.folderNavButton} ${
             selectedMailboxId === allMailboxesId ? styles.folderButtonActive : ''
           }`}
+          data-folder-nav-key={getFolderSidebarNavKey({ type: 'all' }, allMailboxesId)}
           onClick={onSelectAllMailboxes}
         >
           all inboxes
-          {allFolderCount > 0 && <span>{allFolderCount}</span>}
+          <FolderUnreadCount count={allFolderCount} />
         </Button>
       </div>
       {mailboxes.map((mailbox) => (
@@ -54,10 +112,9 @@ function MailboxFolderSidebar({
             {folders.map((folder) => {
               const isActive = selectedMailboxId === mailbox.id && selectedFolder === folder.key;
               const folderCount = folderCountsByMailbox[mailbox.id]?.[folder.key];
-              const shouldShowFolderCount =
-                folderCountKeys.includes(folder.key) &&
-                Number.isFinite(folderCount) &&
-                folderCount > 0;
+              const tracksUnreadCount = folderCountKeys.includes(folder.key);
+              const showUnreadCount =
+                tracksUnreadCount && Number.isFinite(folderCount) && folderCount > 0;
               return (
                 <Button
                   key={`${mailbox.id}:${folder.key}`}
@@ -66,10 +123,14 @@ function MailboxFolderSidebar({
                   variant={['ghost', 'rounded']}
                   labelClassName={styles.folderButtonLabel}
                   className={`${styles.folderNavButton} ${isActive ? styles.folderButtonActive : ''}`}
+                  data-folder-nav-key={getFolderSidebarNavKey(
+                    { type: 'mailbox', mailboxId: mailbox.id, folderKey: folder.key },
+                    allMailboxesId
+                  )}
                   onClick={() => onSelectFolder(mailbox.id, folder.key)}
                 >
                   {folder.label}
-                  {shouldShowFolderCount && <span>{folderCount}</span>}
+                  {showUnreadCount ? <FolderUnreadCount count={folderCount} /> : null}
                 </Button>
               );
             })}

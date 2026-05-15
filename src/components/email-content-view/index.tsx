@@ -31,6 +31,10 @@ type EmailContentViewProps = {
   onForward: () => void;
   onArchive: () => void;
   onDelete: () => void;
+  messageAreaFocused?: boolean;
+  composeDockFocused?: boolean;
+  onMessageAreaFocus?: () => void;
+  onComposeEditorEscape?: () => void;
 };
 
 function EmailContentView({
@@ -52,6 +56,10 @@ function EmailContentView({
   onForward,
   onArchive,
   onDelete,
+  messageAreaFocused = false,
+  composeDockFocused = false,
+  onMessageAreaFocus,
+  onComposeEditorEscape,
 }: EmailContentViewProps) {
   const messageAreaRef = useRef<HTMLDivElement | null>(null);
 
@@ -156,7 +164,12 @@ function EmailContentView({
         <br />
         <hr />
       </div>
-      <div className={styles.messageArea} ref={messageAreaRef}>
+      <div
+        className={`${styles.messageArea} ${messageAreaFocused ? styles.messageAreaFocused : ''}`}
+        ref={messageAreaRef}
+        data-mail-message-area
+        onMouseDown={onMessageAreaFocus}
+      >
         {showHtml ? (
           <HtmlEmailFrame html={preparedHtml} />
         ) : (
@@ -175,6 +188,8 @@ function EmailContentView({
         onAddAttachments={onAddAttachments}
         onRemoveAttachment={onRemoveAttachment}
         sendDisabled={sendDisabled}
+        composeDockFocused={composeDockFocused}
+        onEscapeFromEditor={onComposeEditorEscape}
       />
     </div>
   );

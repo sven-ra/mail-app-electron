@@ -86,6 +86,13 @@ export function compareEmailsByRecency(a: EmailListItem, b: EmailListItem): numb
   return Number(b?.uid || 0) - Number(a?.uid || 0);
 }
 
+export function getEmailSelectionKey(
+  email: Pick<EmailListItem, 'selectionUid' | 'uid' | 'folderKey' | 'mailboxId'>
+): string {
+  if (email.selectionUid) return String(email.selectionUid);
+  return `${email.mailboxId}:${email.folderKey}:${email.uid}`;
+}
+
 export function groupEmailsByThread(emails: EmailListItem[]): ThreadGroup[] {
   const idToThreadId = new Map<string, string>();
   const threads = new Map<string, ThreadGroup>();

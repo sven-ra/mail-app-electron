@@ -42,4 +42,11 @@
   min-width: 0;
   width: 100%;
   text-align: left;
+  display: flex;
+  align-items: baseline;
+  gap: 0.4em;
+}
+
+.folderUnreadCount {
+  flex-shrink: 0;
 }
