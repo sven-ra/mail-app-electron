@@ -5,6 +5,7 @@ import { prepareEmailHtml } from '../prepareEmailHtml';
 import HtmlEmailFrame from '../html-email-frame';
 import PlaintextThread from '../plaintext-thread';
 import ReplyEditorDock from '../reply-editor-dock';
+import { formatEmailDetailDate } from '../../mail/formatDate';
 import {
   decodeHeaderValue,
   normalizeThreadOrder,
@@ -160,7 +161,8 @@ function EmailContentView({
         <br />
         <b>To:</b> {decodeHeaderValue(contentEmail.to)}
         <br />
-        <b>Date:</b> {decodeHeaderValue(contentEmail.date)}
+        <b>Date:</b>{' '}
+        {formatEmailDetailDate(contentEmail.dateRaw || decodeHeaderValue(contentEmail.date))}
         <br />
         <hr />
       </div>

@@ -2,26 +2,9 @@ import React from 'react';
 import styles from './styles.module.css';
 import EmailRowContextMenu from '../email-row-context-menu';
 import { FOLDERS } from '../../mail/constants';
+import { formatInboxRowDate } from '../../mail/formatDate';
 import { decodeHeaderValue, getSenderDisplayName } from '../../mail/plaintextThread';
 import type { EmailListItem, FolderKey } from '../../types/mail';
-
-function formatRowDate(dateValue: string | undefined): string {
-  if (!dateValue) return '';
-  const date = new Date(dateValue);
-  if (Number.isNaN(date.getTime())) return '';
-
-  const now = new Date();
-  const isSameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate();
-
-  if (isSameDay) {
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-
-  return date.toLocaleDateString();
-}
 
 type InboxEmailRowProps = {
   email: EmailListItem;
@@ -93,7 +76,7 @@ function InboxEmailRow({
         data-selection-uid={rowEmailUid}
         onClick={() => onSelectEmail(email)}
       >
-        <div className={styles.rowDate}>{formatRowDate(email.dateRaw || email.date)}</div>
+        <div className={styles.rowDate}>{formatInboxRowDate(email.dateRaw || email.date)}</div>
         <div className={styles.rowSender}>
           {email.isUnread && (
             <svg className={styles.unreadDotIcon} viewBox="0 0 8 8" aria-hidden="true" focusable="false">

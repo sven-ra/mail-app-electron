@@ -524,6 +524,26 @@ function normalizeReferences(value) {
     .filter(Boolean);
 }
 
+async function parseFolderListEmail(rawBuffer, uid, flags) {
+  const parsed = await simpleParser(rawBuffer);
+  const dateStr = String(parsed.headers?.get?.('date') || '');
+  const parsedDate = parsed.date;
+  const hasValidDate = parsedDate && !Number.isNaN(parsedDate.getTime());
+
+  return {
+    uid,
+    subject: decodeSubject(parsed.subject || '(no subject)'),
+    date: dateStr || '',
+    dateRaw: hasValidDate ? parsedDate.toISOString() : '',
+    from: decodeSubject(parsed.from ? parsed.from.text : ''),
+    isUnread: !flags.includes('\\Seen'),
+    previewLines: buildPreviewLines(parsed.text),
+    messageId: parsed.messageId ? String(parsed.messageId) : '',
+    inReplyTo: normalizeMessageId(parsed.inReplyTo),
+    references: normalizeReferences(parsed.references),
+  };
+}
+
 function addressListText(addr) {
   if (!addr) return '';
   if (typeof addr.text === 'string' && addr.text) return addr.text;
@@ -667,9 +687,8 @@ ipcMain.handle('list-mailboxes', async (event, config) => {
   return discoverMailboxes(config);
 });
 
-// IPC: fetch folder headers (subject + date + uid). Header-only fetch keeps the
-// payload tiny — full bodies are loaded lazily by fetch-folder-email when a
-// row is selected.
+// IPC: fetch folder list rows (RFC822 parsed for preview text). Attachments and
+// CID images are still loaded lazily by fetch-folder-email when a row is opened.
 ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMap = {}, options = {}) => {
   const mailboxPath = getMailboxPath(folderKey, mailboxMap);
   const limit = Math.max(1, Number(options.limit) || 50);
@@ -734,42 +753,23 @@ ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMa
           });
 
           msg.once('end', () => {
-            try {
-              const rawHeaders = Buffer.concat(chunks);
-              const headers = Imap.parseHeader(rawHeaders.toString('utf8'));
-              const subject = decodeSubject(headers.subject?.[0] || '(no subject)');
-              const dateStr = headers.date?.[0] || null;
-              const parsedDate = dateStr ? new Date(dateStr) : null;
-              const hasValidDate = parsedDate && !Number.isNaN(parsedDate.getTime());
-              const date = hasValidDate ? parsedDate.toLocaleString() : 'No date';
-              const dateRaw = hasValidDate ? parsedDate.toISOString() : '';
-              const from = decodeSubject(headers.from?.[0] || '');
-              const messageId = normalizeMessageId(headers['message-id']?.[0] || '');
-              const inReplyTo = normalizeMessageId(headers['in-reply-to']?.[0] || '');
-              const references = normalizeReferences(headers['references'] || []);
-              emails.push({
-                uid,
-                subject,
-                date,
-                dateRaw,
-                from,
-                isUnread: !flags.includes('\\Seen'),
-                previewLines: [],
-                messageId,
-                inReplyTo,
-                references,
+            parseFolderListEmail(Buffer.concat(chunks), uid, flags)
+              .then((row) => {
+                emails.push(row);
+                processedCount++;
+                checkDone();
+              })
+              .catch(() => {
+                emails.push({
+                  uid,
+                  subject: '(parse error)',
+                  date: '',
+                  isUnread: !flags.includes('\\Seen'),
+                  previewLines: [],
+                });
+                processedCount++;
+                checkDone();
               });
-            } catch (e) {
-              emails.push({
-                uid,
-                subject: '(parse error)',
-                date: 'No date',
-                isUnread: !flags.includes('\\Seen'),
-                previewLines: [],
-              });
-            }
-            processedCount++;
-            checkDone();
           });
 
           msg.once('error', () => {
@@ -808,7 +808,7 @@ ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMa
             return;
           }
 
-          startFetch(imap.fetch(selectedUids, { bodies: 'HEADER' }));
+          startFetch(imap.fetch(selectedUids, { bodies: '' }));
         });
         return;
       }
@@ -816,7 +816,7 @@ ipcMain.handle('fetch-folder-emails', async (event, config, folderKey, mailboxMa
       const start = Math.max(1, total - limit + 1);
       const range = `${start}:${total}`;
       hasMore = start > 1;
-      startFetch(imap.seq.fetch(range, { bodies: 'HEADER' }));
+      startFetch(imap.seq.fetch(range, { bodies: '' }));
     });
   });
 });
@@ -894,7 +894,8 @@ ipcMain.handle('fetch-folder-email', async (event, config, folderKey, uid, mailb
             .then((parsed) => {
               finish(null, {
                 subject: parsed.subject || '(no subject)',
-                date: parsed.date ? parsed.date.toLocaleString() : 'No date',
+                date: parsed.date ? parsed.date.toISOString() : '',
+                dateRaw: parsed.date ? parsed.date.toISOString() : '',
                 from: parsed.from ? parsed.from.text : '',
                 to: parsed.to ? parsed.to.text : '',
                 cc: addressListText(parsed.cc),
@@ -1174,6 +1175,23 @@ function getPlainTextBody(payload) {
   const htmlText = htmlToPlainText(payload.html);
   if (htmlText.trim()) return htmlText;
   return String(payload.text || '');
+}
+
+function buildPreviewLines(plainText) {
+  const normalized = String(plainText || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .trim();
+
+  const preview = [];
+  for (const line of normalized.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed.startsWith('>') || trimmed.startsWith('&gt;')) continue;
+    preview.push(trimmed);
+    if (preview.length >= 3) break;
+  }
+  return preview;
 }
 
 function getHtmlBody(payload) {
